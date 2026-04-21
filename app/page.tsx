@@ -27,8 +27,29 @@ type LiveListing = {
 const quickFilters = ["Free", "Newest", "Featured", "Low Cost"] as const;
 type QuickFilter = (typeof quickFilters)[number];
 
-function normalizeCategory(value: string | null): CategoryId | "" {
-  if (!value) return "";
+function normalizeCategory(value: string | null, type?: string | null, description?: string | null): CategoryId | "" {
+  if (!value) {
+    const text = `${type || ""} ${description || ""}`.toLowerCase();
+    if (text.includes("food") || text.includes("meal") || text.includes("grocery") || text.includes("groceries") || text.includes("egg")) {
+      return "need-food";
+    }
+    if (text.includes("taxi") || text.includes("ride") || text.includes("delivery")) {
+      return "need-ride";
+    }
+    if (
+      text.includes("plumb") ||
+      text.includes("barber") ||
+      text.includes("hair") ||
+      text.includes("repair") ||
+      text.includes("beauty") ||
+      text.includes("nail") ||
+      text.includes("tutor")
+    ) {
+      return "services";
+    }
+    return "";
+  }
+
   if (value === "sell") return "sell-offer";
   if (value === "offer") return "sell-offer";
   if (value === "buy") return "buy-sell";
@@ -53,11 +74,11 @@ function normalizeCategory(value: string | null): CategoryId | "" {
 
 function isFreePriority(item: LiveListing) {
   const priceText = (item.price || "").toLowerCase();
-  const category = normalizeCategory(item.category);
+  const category = normalizeCategory(item.category, item.type, item.description);
   const text = `${item.type || ""} ${item.description || ""}`.toLowerCase();
 
   const hasFree = priceText.includes("free");
-  const rescueWords = ["rescue", "donation", "donate", "meal", "meals", "food", "groceries"];
+  const rescueWords = ["rescue", "donation", "donate", "meal", "meals", "food", "groceries", "grocery"];
   const hasRescueWord = rescueWords.some((word) => text.includes(word));
 
   const eligibleCategory =
@@ -193,7 +214,7 @@ export default function HomePage() {
 
   const filteredRows = useMemo(() => {
     let result = rows.filter((item) => {
-      const normalized = normalizeCategory(item.category);
+      const normalized = normalizeCategory(item.category, item.type, item.description);
       const matchesCategory = selectedCategory ? normalized === selectedCategory : true;
       const matchesParish = parish === "all" ? true : item.parish === parish;
 
@@ -268,9 +289,17 @@ export default function HomePage() {
               </div>
             </div>
 
-            <Link href="/login" className="btn secondary" style={{ maxWidth: 160 }}>
-              Sign In
-            </Link>
+            <div className="flex gap-8 wrap">
+              <Link href="/" className="btn secondary" style={{ width: "auto" }}>
+                Home
+              </Link>
+              <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
+                Login
+              </Link>
+              <Link href="/signup" className="btn secondary" style={{ width: "auto" }}>
+                Sign Up
+              </Link>
+            </div>
           </div>
 
           <div className="topbar-grid" style={{ marginTop: 16 }}>
@@ -290,9 +319,13 @@ export default function HomePage() {
               ))}
             </select>
 
-            <Link href="/post" className="btn">
-              Sell / Offer Anything
-            </Link>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => alert("Voice search coming next")}
+            >
+              Voice
+            </button>
           </div>
 
           <div className="actions-grid" style={{ marginTop: 16 }}>
@@ -381,7 +414,7 @@ export default function HomePage() {
               <div style={{ fontSize: 32, fontWeight: 800 }}>
                 {
                   rows.filter((item) => {
-                    const c = normalizeCategory(item.category);
+                    const c = normalizeCategory(item.category, item.type, item.description);
                     return c === "need-food" || c === "sell-offer" || c === "buy-sell";
                   }).length
                 }
@@ -395,30 +428,9 @@ export default function HomePage() {
           </div>
 
           <div className="grid" style={{ marginTop: 12 }}>
-            <Link href="/admin" className="btn">
-              Open Admin Dashboard
-            </Link>
-            <Link href="/post" className="btn secondary">
+            <Link href="/post" className="btn">
               Create New Listing
             </Link>
-          </div>
-        </div>
-
-        <div className="card pad">
-          <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Vendor onboarding</div>
-          <div className="grid small muted">
-            <div className="card pad" style={{ background: "#f8fafc" }}>
-              Step 1: Free sign-up with phone number or email
-            </div>
-            <div className="card pad" style={{ background: "#f8fafc" }}>
-              Step 2: Add product, service, food, job, ride, event, or need
-            </div>
-            <div className="card pad" style={{ background: "#f8fafc" }}>
-              Step 3: Wait for admin approval
-            </div>
-            <div className="card pad" style={{ background: "#f8fafc" }}>
-              Step 4: Go live on the neighborhood dashboard
-            </div>
           </div>
         </div>
       </div>
