@@ -20,6 +20,7 @@ type LiveListing = {
   image_url: string | null;
   status: string | null;
   featured: boolean | null;
+  featured_expires_at: string | null;
   created_at: string | null;
 };
 
@@ -50,16 +51,35 @@ function normalizeCategory(value: string | null): CategoryId | "" {
   return valid.includes(value as CategoryId) ? (value as CategoryId) : "";
 }
 
+function isFreePriority(item: LiveListing) {
+  const priceText = (item.price || "").toLowerCase();
+  const category = normalizeCategory(item.category);
+  const text = `${item.type || ""} ${item.description || ""}`.toLowerCase();
+
+  const hasFree = priceText.includes("free");
+  const rescueWords = ["rescue", "donation", "donate", "meal", "meals", "food", "groceries"];
+  const hasRescueWord = rescueWords.some((word) => text.includes(word));
+
+  const eligibleCategory =
+    category === "need-food" ||
+    category === "sell-offer" ||
+    category === "emergency-help";
+
+  return hasFree && (eligibleCategory || hasRescueWord);
+}
+
 function ListingCard({ item }: { item: LiveListing }) {
   const phone = item.contact_phone || "";
   const sellerLabel = item.type || "Community Listing";
+  const freePriority = isFreePriority(item);
 
   return (
     <div className="card pad">
       <div className="flex between gap-12">
         <div>
           <div className="flex wrap gap-8" style={{ marginBottom: 8 }}>
-            {item.featured ? <span className="badge featured">Featured</span> : null}
+            {freePriority ? <span className="badge featured">Free Priority</span> : null}
+            {!freePriority && item.featured ? <span className="badge featured">Featured</span> : null}
             {item.type ? <span className="badge">{item.type}</span> : null}
           </div>
 
@@ -86,6 +106,21 @@ function ListingCard({ item }: { item: LiveListing }) {
         📍 {[item.community, item.district, item.parish].filter(Boolean).join(", ")}
       </div>
 
+      {item.image_url ? (
+        <div style={{ marginTop: 12 }}>
+          <img
+            src={item.image_url}
+            alt={item.title || "Listing image"}
+            style={{
+              width: "100%",
+              maxHeight: 260,
+              objectFit: "cover",
+              borderRadius: 12,
+            }}
+          />
+        </div>
+      ) : null}
+
       {item.description ? (
         <div className="small" style={{ marginTop: 10 }}>
           {item.description}
@@ -108,7 +143,7 @@ function ListingCard({ item }: { item: LiveListing }) {
           WhatsApp
         </a>
 
-        <a className="btn outline" href={makeTelLink(phone || "")}>
+        <a className="btn outline" href={phone ? makeTelLink(phone) : "#"}>
           Call
         </a>
       </div>
@@ -185,7 +220,7 @@ export default function HomePage() {
     }
 
     if (activeQuickFilter === "Featured") {
-      result = result.filter((item) => item.featured);
+      result = result.filter((item) => item.featured || isFreePriority(item));
     }
 
     if (activeQuickFilter === "Low Cost") {
@@ -200,6 +235,12 @@ export default function HomePage() {
 
     if (activeQuickFilter === "Newest") {
       result = [...result].sort((a, b) => {
+        const aPriority = isFreePriority(a);
+        const bPriority = isFreePriority(b);
+
+        if (aPriority && !bPriority) return -1;
+        if (!aPriority && bPriority) return 1;
+
         const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
         const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
         return bTime - aTime;
@@ -209,7 +250,7 @@ export default function HomePage() {
     return result;
   }, [rows, selectedCategory, parish, search, activeQuickFilter]);
 
-  const featuredRows = filteredRows.filter((item) => item.featured);
+  const featuredRows = filteredRows.filter((item) => item.featured || isFreePriority(item));
 
   return (
     <div className="grid-main">
@@ -279,7 +320,7 @@ export default function HomePage() {
         <div className="card pad" style={{ background: "#fef3c7" }}>
           <div className="flex between center gap-12">
             <div style={{ fontSize: 22, fontWeight: 700 }}>Featured in your area</div>
-            <div className="small muted">Approved featured listings</div>
+            <div className="small muted">Approved featured and free-priority listings</div>
           </div>
 
           <div className="featured-scroll" style={{ marginTop: 12 }}>
@@ -329,10 +370,27 @@ export default function HomePage() {
             </div>
 
             <div className="card pad" style={{ background: "#f8fafc" }}>
-              <div className="small muted">Featured live listings</div>
+              <div className="small muted">Featured / free priority</div>
               <div style={{ fontSize: 32, fontWeight: 800 }}>
-                {rows.filter((item) => item.featured).length}
+                {rows.filter((item) => item.featured || isFreePriority(item)).length}
               </div>
+            </div>
+
+            <div className="card pad" style={{ background: "#f8fafc" }}>
+              <div className="small muted">Food / product posts</div>
+              <div style={{ fontSize: 32, fontWeight: 800 }}>
+                {
+                  rows.filter((item) => {
+                    const c = normalizeCategory(item.category);
+                    return c === "need-food" || c === "sell-offer" || c === "buy-sell";
+                  }).length
+                }
+              </div>
+            </div>
+
+            <div className="card pad" style={{ background: "#f8fafc" }}>
+              <div className="small muted">Pending approval route</div>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>Admin</div>
             </div>
           </div>
 
@@ -343,6 +401,24 @@ export default function HomePage() {
             <Link href="/post" className="btn secondary">
               Create New Listing
             </Link>
+          </div>
+        </div>
+
+        <div className="card pad">
+          <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Vendor onboarding</div>
+          <div className="grid small muted">
+            <div className="card pad" style={{ background: "#f8fafc" }}>
+              Step 1: Free sign-up with phone number or email
+            </div>
+            <div className="card pad" style={{ background: "#f8fafc" }}>
+              Step 2: Add product, service, food, job, ride, event, or need
+            </div>
+            <div className="card pad" style={{ background: "#f8fafc" }}>
+              Step 3: Wait for admin approval
+            </div>
+            <div className="card pad" style={{ background: "#f8fafc" }}>
+              Step 4: Go live on the neighborhood dashboard
+            </div>
           </div>
         </div>
       </div>
