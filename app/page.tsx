@@ -44,7 +44,59 @@ function normalizeCategory(value: string | null): CategoryId | "" {
   return valid.includes(value as CategoryId) ? (value as CategoryId) : "";
 }
 
-function ListingCard({ item }: { item: LiveListing }) {
+function SaveButton({
+  listingId,
+  savedIds,
+  onSaved,
+}: {
+  listingId: string;
+  savedIds: Set<string>;
+  onSaved: (id: string) => void;
+}) {
+  const isSaved = savedIds.has(listingId);
+
+  async function handleSave() {
+    if (!supabase) return;
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const { error } = await supabase.from("favorite_listings").insert({
+      user_id: session.user.id,
+      listing_id: listingId,
+    });
+
+    if (!error) onSaved(listingId);
+  }
+
+  return (
+    <button
+      type="button"
+      className={isSaved ? "btn" : "btn secondary"}
+      style={{ width: "100%" }}
+      onClick={handleSave}
+      disabled={isSaved}
+    >
+      {isSaved ? "Saved" : "Save"}
+    </button>
+  );
+}
+
+function ListingCard({
+  item,
+  savedIds,
+  onSaved,
+}: {
+  item: LiveListing;
+  savedIds: Set<string>;
+  onSaved: (id: string) => void;
+}) {
   const phone = item.contact_phone || "";
 
   return (
@@ -52,11 +104,9 @@ function ListingCard({ item }: { item: LiveListing }) {
       <div className="flex between gap-12">
         <div>
           {item.featured ? <span className="badge featured">Featured</span> : null}
-
           <div style={{ fontSize: 20, fontWeight: 700, marginTop: 8 }}>
             {item.title}
           </div>
-
           <div className="small muted">{item.type}</div>
         </div>
 
@@ -91,7 +141,7 @@ function ListingCard({ item }: { item: LiveListing }) {
 
       <div
         className="grid"
-        style={{ gridTemplateColumns: "repeat(2,1fr)", marginTop: 12 }}
+        style={{ gridTemplateColumns: "repeat(3,1fr)", marginTop: 12 }}
       >
         <a
           className="btn"
@@ -105,6 +155,8 @@ function ListingCard({ item }: { item: LiveListing }) {
         <a className="btn secondary" href={phone ? makeTelLink(phone) : "#"}>
           Call
         </a>
+
+        <SaveButton listingId={item.id} savedIds={savedIds} onSaved={onSaved} />
       </div>
     </div>
   );
@@ -117,9 +169,11 @@ export default function HomePage() {
   const [parish, setParish] = useState("all");
   const [quick, setQuick] = useState<QuickFilter>("Newest");
   const [msg, setMsg] = useState("");
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadListings();
+    loadSaved();
 
     const timer = setInterval(() => {
       loadListings();
@@ -129,6 +183,8 @@ export default function HomePage() {
   }, []);
 
   async function loadListings() {
+    if (!supabase) return;
+
     const { data, error } = await supabase
       .from("listings")
       .select("*")
@@ -144,20 +200,40 @@ export default function HomePage() {
     setMsg("");
   }
 
+  async function loadSaved() {
+    if (!supabase) return;
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) return;
+
+    const { data, error } = await supabase
+      .from("favorite_listings")
+      .select("listing_id")
+      .eq("user_id", session.user.id);
+
+    if (!error && data) {
+      setSavedIds(new Set(data.map((x: { listing_id: string }) => x.listing_id)));
+    }
+  }
+
+  function handleSaved(id: string) {
+    setSavedIds((prev) => new Set(prev).add(id));
+  }
+
   const filtered = useMemo(() => {
     let result = rows.filter((item) => {
       const matchesCategory = selectedCategory
         ? normalizeCategory(item.category) === selectedCategory
         : true;
 
-      const matchesParish =
-        parish === "all" ? true : item.parish === parish;
+      const matchesParish = parish === "all" ? true : item.parish === parish;
 
       const text = `${item.title} ${item.type} ${item.description}`.toLowerCase();
 
-      const matchesSearch = search
-        ? text.includes(search.toLowerCase())
-        : true;
+      const matchesSearch = search ? text.includes(search.toLowerCase()) : true;
 
       return matchesCategory && matchesParish && matchesSearch;
     });
@@ -252,9 +328,7 @@ export default function HomePage() {
           {categories.map((c) => (
             <button
               key={c.id}
-              className={`action-btn ${
-                selectedCategory === c.id ? "active" : ""
-              }`}
+              className={`action-btn ${selectedCategory === c.id ? "active" : ""}`}
               onClick={() => handleCategoryTap(c.id as CategoryId)}
             >
               <div style={{ fontSize: 24 }}>{c.emoji}</div>
@@ -283,7 +357,12 @@ export default function HomePage() {
           }}
         >
           {featured.map((item) => (
-            <ListingCard key={item.id} item={item} />
+            <ListingCard
+              key={item.id}
+              item={item}
+              savedIds={savedIds}
+              onSaved={handleSaved}
+            />
           ))}
         </div>
       </div>
@@ -309,7 +388,12 @@ export default function HomePage() {
 
       <div id="results-section" className="grid" style={{ marginTop: 14 }}>
         {filtered.map((item) => (
-          <ListingCard key={item.id} item={item} />
+          <ListingCard
+            key={item.id}
+            item={item}
+            savedIds={savedIds}
+            onSaved={handleSaved}
+          />
         ))}
       </div>
 
@@ -336,12 +420,17 @@ export default function HomePage() {
           Post
         </Link>
 
+        <button
+          type="button"
+          className="btn secondary"
+          style={{ width: "100%" }}
+          onClick={() => alert("Voice search coming next")}
+        >
+          Voice
+        </button>
+
         <Link href="/favorites" className="btn secondary" style={{ width: "100%" }}>
           Saved
-        </Link>
-
-        <Link href="/login" className="btn secondary" style={{ width: "100%" }}>
-          Login
         </Link>
       </div>
     </div>

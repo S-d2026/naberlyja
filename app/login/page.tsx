@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -8,13 +9,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     checkExistingSession();
   }, []);
 
   async function checkExistingSession() {
-    if (!supabase) return;
+    if (!supabase) {
+      setChecking(false);
+      return;
+    }
 
     const {
       data: { session },
@@ -22,7 +27,10 @@ export default function LoginPage() {
 
     if (session) {
       window.location.href = "/";
+      return;
     }
+
+    setChecking(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -31,7 +39,7 @@ export default function LoginPage() {
     setLoading(true);
 
     if (!supabase) {
-      setMsg("Supabase is not configured yet. Add your environment variables first.");
+      setMsg("Supabase is not configured yet.");
       setLoading(false);
       return;
     }
@@ -50,9 +58,23 @@ export default function LoginPage() {
     window.location.href = "/";
   }
 
+  if (checking) {
+    return (
+      <div className="card pad" style={{ maxWidth: 520, margin: "40px auto" }}>
+        Checking login...
+      </div>
+    );
+  }
+
   return (
-    <div className="card pad" style={{ maxWidth: 520, margin: "0 auto" }}>
-      <div className="section-title">Sign in</div>
+    <div className="card pad" style={{ maxWidth: 520, margin: "40px auto" }}>
+      <div className="flex between center gap-12">
+        <div className="section-title">Login</div>
+        <Link href="/" className="btn secondary" style={{ width: "auto" }}>
+          Home
+        </Link>
+      </div>
+
       <form onSubmit={handleSubmit} className="grid" style={{ marginTop: 16 }}>
         <input
           className="input"
