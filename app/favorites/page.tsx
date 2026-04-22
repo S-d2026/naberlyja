@@ -5,21 +5,23 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { makeTelLink, makeWhatsAppLink } from "@/lib/links";
 
+type ListingItem = {
+  id: string;
+  title: string | null;
+  type: string | null;
+  price: string | null;
+  parish: string | null;
+  district: string | null;
+  community: string | null;
+  contact_phone: string | null;
+  image_url: string | null;
+  description: string | null;
+};
+
 type FavoriteRow = {
   id: string;
   listing_id: string;
-  listings: {
-    id: string;
-    title: string | null;
-    type: string | null;
-    price: string | null;
-    parish: string | null;
-    district: string | null;
-    community: string | null;
-    contact_phone: string | null;
-    image_url: string | null;
-    description: string | null;
-  } | null;
+  listings: ListingItem | ListingItem[] | null;
 };
 
 export default function FavoritesPage() {
@@ -56,8 +58,16 @@ export default function FavoritesPage() {
       return;
     }
 
-    setRows((data as FavoriteRow[]) || []);
+    setRows(((data ?? []) as unknown as FavoriteRow[]));
     setMsg(data && data.length ? "" : "No saved items yet.");
+  }
+
+  function getListing(item: FavoriteRow): ListingItem | null {
+    if (!item.listings) return null;
+    if (Array.isArray(item.listings)) {
+      return item.listings[0] || null;
+    }
+    return item.listings;
   }
 
   return (
@@ -83,7 +93,7 @@ export default function FavoritesPage() {
 
       <div className="grid" style={{ marginTop: 14 }}>
         {rows.map((row) => {
-          const item = row.listings;
+          const item = getListing(row);
           if (!item) return null;
 
           return (
