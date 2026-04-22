@@ -270,93 +270,152 @@ export default function HomePage() {
   return (
     <div
       style={{
-        maxWidth: 760,
+        width: "100%",
+        maxWidth: 1280,
         margin: "0 auto",
         padding: 12,
         overflowX: "hidden",
         paddingBottom: 90,
       }}
     >
-      <div className="card pad">
-        <div className="flex between center gap-12">
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 28 }}>Naberly</div>
-            <div className="small muted">Jamaica Launch • Naberly JA</div>
+      <div
+        style={{
+          display: "grid",
+          gap: 16,
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+        }}
+      >
+        <div className="card pad" style={{ gridColumn: "1 / -1" }}>
+          <div className="flex between center gap-12 wrap">
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 28 }}>Naberly</div>
+              <div className="small muted">Jamaica Launch • Naberly JA</div>
 
-            <div style={{ fontSize: 24, fontWeight: 700, marginTop: 10 }}>
-              How can Naberly help you today?
+              <div style={{ fontSize: 24, fontWeight: 700, marginTop: 10 }}>
+                How can Naberly help you today?
+              </div>
+
+              <div className="small muted" style={{ marginTop: 8 }}>
+                Your Naberhood at your fingertips.
+              </div>
+
+              <div className="small muted" style={{ marginTop: 8 }}>
+                The fastest way to find what you need nearby.
+              </div>
             </div>
 
-            <div className="small muted" style={{ marginTop: 8 }}>
-              Your Naberhood at your fingertips.
+            <div className="flex gap-8 wrap">
+              <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
+                Login
+              </Link>
+
+              <Link href="/signup" className="btn secondary" style={{ width: "auto" }}>
+                Sign Up
+              </Link>
             </div>
           </div>
 
-          <div className="flex gap-8 wrap">
-            <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
-              Login
-            </Link>
-
-            <Link href="/signup" className="btn secondary" style={{ width: "auto" }}>
-              Sign Up
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid" style={{ marginTop: 14 }}>
-          <input
-            className="input"
-            placeholder="Search listings"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-
-          <select
-            className="select"
-            value={parish}
-            onChange={(e) => setParish(e.target.value)}
+          <div
+            style={{
+              display: "grid",
+              gap: 12,
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              marginTop: 14,
+            }}
           >
-            <option value="all">All parishes</option>
+            <input
+              className="input"
+              placeholder="Search listings"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
 
-            {parishes.map((p) => (
-              <option key={p}>{p}</option>
+            <select
+              className="select"
+              value={parish}
+              onChange={(e) => setParish(e.target.value)}
+            >
+              <option value="all">All parishes</option>
+
+              {parishes.map((p) => (
+                <option key={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="actions-grid" style={{ marginTop: 14 }}>
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                className={`action-btn ${selectedCategory === c.id ? "active" : ""}`}
+                onClick={() => handleCategoryTap(c.id as CategoryId)}
+              >
+                <div style={{ fontSize: 24 }}>{c.emoji}</div>
+                <div>{c.label}</div>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
-        <div className="actions-grid" style={{ marginTop: 14 }}>
-          {categories.map((c) => (
+        <div className="card pad" style={{ gridColumn: "1 / -1" }}>
+          <div className="flex between center">
+            <div style={{ fontSize: 22, fontWeight: 700 }}>
+              Featured Nearby
+            </div>
+
+            <div className="small muted">Swipe sideways</div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              overflowX: "auto",
+              paddingTop: 12,
+              paddingBottom: 6,
+            }}
+          >
+            {featured.map((item) => (
+              <ListingCard
+                key={item.id}
+                item={item}
+                savedIds={savedIds}
+                onSaved={handleSaved}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="quick-filters" style={{ marginTop: 4, gridColumn: "1 / -1" }}>
+          {quickFilters.map((q) => (
             <button
-              key={c.id}
-              className={`action-btn ${selectedCategory === c.id ? "active" : ""}`}
-              onClick={() => handleCategoryTap(c.id as CategoryId)}
+              key={q}
+              className={quick === q ? "btn" : "btn secondary"}
+              style={{ width: "auto" }}
+              onClick={() => setQuick(q)}
             >
-              <div style={{ fontSize: 24 }}>{c.emoji}</div>
-              <div>{c.label}</div>
+              {q}
             </button>
           ))}
         </div>
-      </div>
 
-      <div className="card pad" style={{ marginTop: 14 }}>
-        <div className="flex between center">
-          <div style={{ fontSize: 22, fontWeight: 700 }}>
-            Featured Nearby
+        {msg ? (
+          <div className="card pad muted" style={{ marginTop: 4, gridColumn: "1 / -1" }}>
+            {msg}
           </div>
-
-          <div className="small muted">Swipe sideways</div>
-        </div>
+        ) : null}
 
         <div
+          id="results-section"
           style={{
-            display: "flex",
-            gap: 12,
-            overflowX: "auto",
-            paddingTop: 12,
-            paddingBottom: 6,
+            display: "grid",
+            gap: 16,
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gridColumn: "1 / -1",
+            marginTop: 4,
           }}
         >
-          {featured.map((item) => (
+          {filtered.map((item) => (
             <ListingCard
               key={item.id}
               item={item}
@@ -365,36 +424,6 @@ export default function HomePage() {
             />
           ))}
         </div>
-      </div>
-
-      <div className="quick-filters" style={{ marginTop: 14 }}>
-        {quickFilters.map((q) => (
-          <button
-            key={q}
-            className={quick === q ? "btn" : "btn secondary"}
-            style={{ width: "auto" }}
-            onClick={() => setQuick(q)}
-          >
-            {q}
-          </button>
-        ))}
-      </div>
-
-      {msg ? (
-        <div className="card pad muted" style={{ marginTop: 14 }}>
-          {msg}
-        </div>
-      ) : null}
-
-      <div id="results-section" className="grid" style={{ marginTop: 14 }}>
-        {filtered.map((item) => (
-          <ListingCard
-            key={item.id}
-            item={item}
-            savedIds={savedIds}
-            onSaved={handleSaved}
-          />
-        ))}
       </div>
 
       <div
