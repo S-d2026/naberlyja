@@ -420,17 +420,12 @@ export default function HomePage() {
           Post
         </Link>
 
-        <button
-          type="button"
-          className="btn secondary"
-          style={{ width: "100%" }}
-          onClick={() => alert("Voice search coming next")}
-        >
-          Voice
-        </button>
-
         <Link href="/favorites" className="btn secondary" style={{ width: "100%" }}>
           Saved
+        </Link>
+
+        <Link href="/login" className="btn secondary" style={{ width: "100%" }}>
+          Login
         </Link>
       </div>
     </div>

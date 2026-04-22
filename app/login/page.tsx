@@ -9,29 +9,37 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    checkExistingSession();
+    let mounted = true;
+
+    async function init() {
+      if (!supabase) {
+        if (mounted) setReady(true);
+        return;
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      if (session) {
+        window.location.replace("/");
+        return;
+      }
+
+      setReady(true);
+    }
+
+    init();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
-
-  async function checkExistingSession() {
-    if (!supabase) {
-      setChecking(false);
-      return;
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (session) {
-      window.location.href = "/";
-      return;
-    }
-
-    setChecking(false);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,10 +63,10 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.href = "/";
+    window.location.replace("/");
   }
 
-  if (checking) {
+  if (!ready) {
     return (
       <div className="card pad" style={{ maxWidth: 520, margin: "40px auto" }}>
         Checking login...
