@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { categories, parishes, CategoryId } from "@/data/listings";
 import { supabase } from "@/lib/supabase";
@@ -20,42 +20,14 @@ type LiveListing = {
   image_url: string | null;
   status: string | null;
   featured: boolean | null;
-  featured_expires_at: string | null;
   created_at: string | null;
 };
 
 const quickFilters = ["Free", "Newest", "Featured", "Low Cost"] as const;
 type QuickFilter = (typeof quickFilters)[number];
 
-function normalizeCategory(value: string | null, type?: string | null, description?: string | null): CategoryId | "" {
-  if (!value) {
-    const text = `${type || ""} ${description || ""}`.toLowerCase();
-    if (text.includes("food") || text.includes("meal") || text.includes("grocery") || text.includes("groceries") || text.includes("egg")) {
-      return "need-food";
-    }
-    if (text.includes("taxi") || text.includes("ride") || text.includes("delivery")) {
-      return "need-ride";
-    }
-    if (
-      text.includes("plumb") ||
-      text.includes("barber") ||
-      text.includes("hair") ||
-      text.includes("repair") ||
-      text.includes("beauty") ||
-      text.includes("nail") ||
-      text.includes("tutor")
-    ) {
-      return "services";
-    }
-    return "";
-  }
-
-  if (value === "sell") return "sell-offer";
-  if (value === "offer") return "sell-offer";
-  if (value === "buy") return "buy-sell";
-  if (value === "worker") return "hire-worker";
-  if (value === "ride") return "need-ride";
-  if (value === "help") return "emergency-help";
+function normalizeCategory(value: string | null): CategoryId | "" {
+  if (!value) return "";
 
   const valid: CategoryId[] = [
     "need-food",
@@ -72,74 +44,41 @@ function normalizeCategory(value: string | null, type?: string | null, descripti
   return valid.includes(value as CategoryId) ? (value as CategoryId) : "";
 }
 
-function isFreePriority(item: LiveListing) {
-  const priceText = (item.price || "").toLowerCase();
-  const category = normalizeCategory(item.category, item.type, item.description);
-  const text = `${item.type || ""} ${item.description || ""}`.toLowerCase();
-
-  const hasFree = priceText.includes("free");
-  const rescueWords = ["rescue", "donation", "donate", "meal", "meals", "food", "groceries", "grocery"];
-  const hasRescueWord = rescueWords.some((word) => text.includes(word));
-
-  const eligibleCategory =
-    category === "need-food" ||
-    category === "sell-offer" ||
-    category === "emergency-help";
-
-  return hasFree && (eligibleCategory || hasRescueWord);
-}
-
 function ListingCard({ item }: { item: LiveListing }) {
   const phone = item.contact_phone || "";
-  const sellerLabel = item.type || "Community Listing";
-  const freePriority = isFreePriority(item);
 
   return (
-    <div className="card pad">
+    <div className="card pad" style={{ minWidth: 280 }}>
       <div className="flex between gap-12">
         <div>
-          <div className="flex wrap gap-8" style={{ marginBottom: 8 }}>
-            {freePriority ? <span className="badge featured">Free Priority</span> : null}
-            {!freePriority && item.featured ? <span className="badge featured">Featured</span> : null}
-            {item.type ? <span className="badge">{item.type}</span> : null}
+          {item.featured ? <span className="badge featured">Featured</span> : null}
+          <div style={{ fontSize: 20, fontWeight: 700, marginTop: 8 }}>
+            {item.title}
           </div>
-
-          <div style={{ fontSize: 20, fontWeight: 700 }}>
-            {item.title || "Untitled Listing"}
-          </div>
-
-          <div className="small muted" style={{ marginTop: 4 }}>
-            {sellerLabel}
-          </div>
+          <div className="small muted">{item.type}</div>
         </div>
 
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontWeight: 700 }}>{item.price || "Contact seller"}</div>
-          <div className="small muted">
-            {item.created_at
-              ? new Date(item.created_at).toLocaleDateString()
-              : "Posted recently"}
-          </div>
+          <div style={{ fontWeight: 700 }}>{item.price || "Contact"}</div>
         </div>
       </div>
 
-      <div className="small muted" style={{ marginTop: 12 }}>
+      <div className="small muted" style={{ marginTop: 10 }}>
         📍 {[item.community, item.district, item.parish].filter(Boolean).join(", ")}
       </div>
 
       {item.image_url ? (
-        <div style={{ marginTop: 12 }}>
-          <img
-            src={item.image_url}
-            alt={item.title || "Listing image"}
-            style={{
-              width: "100%",
-              maxHeight: 260,
-              objectFit: "cover",
-              borderRadius: 12,
-            }}
-          />
-        </div>
+        <img
+          src={item.image_url}
+          alt="listing"
+          style={{
+            width: "100%",
+            height: 180,
+            objectFit: "cover",
+            borderRadius: 12,
+            marginTop: 12,
+          }}
+        />
       ) : null}
 
       {item.description ? (
@@ -150,21 +89,18 @@ function ListingCard({ item }: { item: LiveListing }) {
 
       <div
         className="grid"
-        style={{ gridTemplateColumns: "repeat(2, minmax(0,1fr))", marginTop: 12 }}
+        style={{ gridTemplateColumns: "repeat(2,1fr)", marginTop: 12 }}
       >
         <a
           className="btn"
-          href={makeWhatsAppLink(
-            phone,
-            `Hi, I found your listing on Naberly and I am interested in ${item.title || "your post"}.`
-          )}
+          href={makeWhatsAppLink(phone, `Hi, I saw ${item.title} on Naberly.`)}
           target="_blank"
           rel="noreferrer"
         >
           WhatsApp
         </a>
 
-        <a className="btn outline" href={phone ? makeTelLink(phone) : "#"}>
+        <a className="btn secondary" href={phone ? makeTelLink(phone) : "#"}>
           Call
         </a>
       </div>
@@ -173,28 +109,24 @@ function ListingCard({ item }: { item: LiveListing }) {
 }
 
 export default function HomePage() {
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId | "">("");
-  const [parish, setParish] = useState("all");
-  const [search, setSearch] = useState("");
-  const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>("Newest");
   const [rows, setRows] = useState<LiveListing[]>([]);
-  const [msg, setMsg] = useState("Loading approved listings...");
-  const [loading, setLoading] = useState(true);
-  const resultsRef = useRef<HTMLDivElement | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId | "">("");
+  const [search, setSearch] = useState("");
+  const [parish, setParish] = useState("all");
+  const [quick, setQuick] = useState<QuickFilter>("Newest");
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    loadApprovedListings();
+    loadListings();
+
+    const timer = setInterval(() => {
+      loadListings();
+    }, 15000);
+
+    return () => clearInterval(timer);
   }, []);
 
-  async function loadApprovedListings() {
-    setLoading(true);
-
-    if (!supabase) {
-      setMsg("Supabase is not configured.");
-      setLoading(false);
-      return;
-    }
-
+  async function loadListings() {
     const { data, error } = await supabase
       .from("listings")
       .select("*")
@@ -202,249 +134,195 @@ export default function HomePage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      setMsg(`Supabase error: ${error.message}`);
-      setRows([]);
-      setLoading(false);
+      setMsg(error.message);
       return;
     }
 
     setRows(data || []);
-    setMsg(data && data.length ? "" : "No approved listings live yet.");
-    setLoading(false);
+    setMsg("");
   }
 
-  const filteredRows = useMemo(() => {
+  const filtered = useMemo(() => {
     let result = rows.filter((item) => {
-      const normalized = normalizeCategory(item.category, item.type, item.description);
-      const matchesCategory = selectedCategory ? normalized === selectedCategory : true;
-      const matchesParish = parish === "all" ? true : item.parish === parish;
+      const matchesCategory = selectedCategory
+        ? normalizeCategory(item.category) === selectedCategory
+        : true;
 
-      const hay = [
-        item.title,
-        item.type,
-        item.description,
-        item.community,
-        item.district,
-        item.parish,
-        item.price,
-      ]
-        .filter(Boolean)
-        .join(" ")
+      const matchesParish =
+        parish === "all" ? true : item.parish === parish;
+
+      const text = `${item.title} ${item.type} ${item.description}`
         .toLowerCase();
 
-      const matchesSearch = search ? hay.includes(search.toLowerCase()) : true;
+      const matchesSearch = search
+        ? text.includes(search.toLowerCase())
+        : true;
 
       return matchesCategory && matchesParish && matchesSearch;
     });
 
-    if (activeQuickFilter === "Free") {
-      result = result.filter((item) => (item.price || "").toLowerCase().includes("free"));
+    if (quick === "Free") {
+      result = result.filter((x) =>
+        (x.price || "").toLowerCase().includes("free")
+      );
     }
 
-    if (activeQuickFilter === "Featured") {
-      result = result.filter((item) => item.featured || isFreePriority(item));
-    }
-
-    if (activeQuickFilter === "Low Cost") {
-      result = result.filter((item) => {
-        const raw = item.price || "";
-        const match = raw.match(/(\d+[\d,]*)/);
-        if (!match) return false;
-        const value = parseInt(match[1].replace(/,/g, ""), 10);
-        return value <= 1500;
-      });
-    }
-
-    if (activeQuickFilter === "Newest") {
-      result = [...result].sort((a, b) => {
-        const aPriority = isFreePriority(a);
-        const bPriority = isFreePriority(b);
-
-        if (aPriority && !bPriority) return -1;
-        if (!aPriority && bPriority) return 1;
-
-        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return bTime - aTime;
-      });
+    if (quick === "Featured") {
+      result = result.filter((x) => x.featured);
     }
 
     return result;
-  }, [rows, selectedCategory, parish, search, activeQuickFilter]);
+  }, [rows, selectedCategory, parish, search, quick]);
 
-  const featuredRows = filteredRows.filter((item) => item.featured || isFreePriority(item));
-
-  function handleCategoryTap(categoryId: CategoryId) {
-    if (categoryId === "sell-offer") {
-      window.location.href = "/post";
-      return;
-    }
-
-    setSelectedCategory(categoryId);
-    setActiveQuickFilter("Newest");
-
-    setTimeout(() => {
-      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
-  }
+  const featured = rows.filter((x) => x.featured).slice(0, 10);
 
   return (
-    <div className="grid-main">
-      <div className="grid">
-        <div className="card hero pad">
-          <div className="flex between center gap-12">
-            <div>
-              <div className="tiny muted" style={{ textTransform: "uppercase", letterSpacing: 1 }}>
-                Naberly
-              </div>
-              <div className="small muted" style={{ marginTop: 4 }}>
-                Jamaica Launch • Naberly JA
-              </div>
-              <div className="h1">What yuh need, near yuh.</div>
-              <div className="muted">
-                Find approved live food, products, work, services, rides, events, and help in your
-                district or community with one tap.
-              </div>
-            </div>
-
-            <div className="flex gap-8 wrap">
-              <Link href="/" className="btn secondary" style={{ width: "auto" }}>
-                Home
-              </Link>
-              <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
-                Login
-              </Link>
-              <Link href="/signup" className="btn secondary" style={{ width: "auto" }}>
-                Sign Up
-              </Link>
-            </div>
+    <div
+      style={{
+        maxWidth: 760,
+        margin: "0 auto",
+        padding: 12,
+        overflowX: "hidden",
+        paddingBottom: 90,
+      }}
+    >
+      <div className="card pad">
+        <div className="flex between center gap-12">
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 28 }}>Naberly</div>
+            <div className="small muted">Jamaica Launch • Naberly JA</div>
           </div>
 
-          <div className="topbar-grid" style={{ marginTop: 16 }}>
-            <input
-              className="input"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search food, workers, rides, events"
-            />
-
-            <select className="select" value={parish} onChange={(e) => setParish(e.target.value)}>
-              <option value="all">All parishes</option>
-              {parishes.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-
-            <button
-              className="btn"
-              type="button"
-              onClick={() => alert("Voice search coming next")}
-            >
-              Voice
-            </button>
-          </div>
-
-          <div className="actions-grid" style={{ marginTop: 16 }}>
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                className={`action-btn ${selectedCategory === category.id ? "active" : ""}`}
-                onClick={() => handleCategoryTap(category.id as CategoryId)}
-              >
-                <div style={{ fontSize: 26, marginBottom: 10 }}>{category.emoji}</div>
-                <div style={{ fontWeight: 700 }}>{category.label}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="card pad" style={{ background: "#fef3c7" }}>
-          <div className="flex between center gap-12">
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Featured in your area</div>
-            <div className="small muted">Approved featured and free-priority listings</div>
-          </div>
-
-          <div className="featured-scroll" style={{ marginTop: 12 }}>
-            {featuredRows.length ? (
-              featuredRows.map((item) => (
-                <div key={item.id} className="featured-item">
-                  <ListingCard item={item} />
-                </div>
-              ))
-            ) : (
-              <div className="small muted">No featured approved listings in this view yet.</div>
-            )}
-          </div>
-        </div>
-
-        <div className="quick-filters">
-          {quickFilters.map((item) => (
-            <button
-              key={item}
-              className={activeQuickFilter === item ? "btn" : "btn secondary"}
-              style={{ width: "auto", minHeight: 40, padding: "8px 14px" }}
-              onClick={() => setActiveQuickFilter(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-
-        <div ref={resultsRef}>
-          {loading && <div className="card pad muted">Loading approved listings...</div>}
-          {!loading && msg && <div className="card pad muted">{msg}</div>}
-
-          <div className="listings-grid">
-            {filteredRows.map((item) => (
-              <ListingCard key={item.id} item={item} />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid">
-        <div className="card pad">
-          <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Community Activity</div>
-
-          <div className="stat-grid">
-            <div className="card pad" style={{ background: "#f8fafc" }}>
-              <div className="small muted">Approved live listings</div>
-              <div style={{ fontSize: 32, fontWeight: 800 }}>{rows.length}</div>
-            </div>
-
-            <div className="card pad" style={{ background: "#f8fafc" }}>
-              <div className="small muted">Featured / free priority</div>
-              <div style={{ fontSize: 32, fontWeight: 800 }}>
-                {rows.filter((item) => item.featured || isFreePriority(item)).length}
-              </div>
-            </div>
-
-            <div className="card pad" style={{ background: "#f8fafc" }}>
-              <div className="small muted">Food / product posts</div>
-              <div style={{ fontSize: 32, fontWeight: 800 }}>
-                {
-                  rows.filter((item) => {
-                    const c = normalizeCategory(item.category, item.type, item.description);
-                    return c === "need-food" || c === "sell-offer" || c === "buy-sell";
-                  }).length
-                }
-              </div>
-            </div>
-
-            <div className="card pad" style={{ background: "#f8fafc" }}>
-              <div className="small muted">Need to post?</div>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>Create listing</div>
-            </div>
-          </div>
-
-          <div className="grid" style={{ marginTop: 12 }}>
-            <Link href="/post" className="btn">
-              Create New Listing
+          <div className="flex gap-8 wrap">
+            <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
+              Login
+            </Link>
+            <Link href="/signup" className="btn secondary" style={{ width: "auto" }}>
+              Sign Up
             </Link>
           </div>
         </div>
+
+        <div className="grid" style={{ marginTop: 14 }}>
+          <input
+            className="input"
+            placeholder="Search listings"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          <select
+            className="select"
+            value={parish}
+            onChange={(e) => setParish(e.target.value)}
+          >
+            <option value="all">All parishes</option>
+            {parishes.map((p) => (
+              <option key={p}>{p}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="actions-grid" style={{ marginTop: 14 }}>
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              className={`action-btn ${
+                selectedCategory === c.id ? "active" : ""
+              }`}
+              onClick={() => {
+                if (c.id === "sell-offer") {
+                  window.location.href = "/post";
+                  return;
+                }
+                setSelectedCategory(c.id as CategoryId);
+              }}
+            >
+              <div style={{ fontSize: 24 }}>{c.emoji}</div>
+              <div>{c.label}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="card pad" style={{ marginTop: 14 }}>
+        <div className="flex between center">
+          <div style={{ fontSize: 22, fontWeight: 700 }}>
+            Featured Nearby
+          </div>
+          <div className="small muted">Swipe sideways</div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            overflowX: "auto",
+            paddingTop: 12,
+            paddingBottom: 6,
+          }}
+        >
+          {featured.map((item) => (
+            <ListingCard key={item.id} item={item} />
+          ))}
+        </div>
+      </div>
+
+      <div className="quick-filters" style={{ marginTop: 14 }}>
+        {quickFilters.map((q) => (
+          <button
+            key={q}
+            className={quick === q ? "btn" : "btn secondary"}
+            style={{ width: "auto" }}
+            onClick={() => setQuick(q)}
+          >
+            {q}
+          </button>
+        ))}
+      </div>
+
+      {msg ? (
+        <div className="card pad muted" style={{ marginTop: 14 }}>
+          {msg}
+        </div>
+      ) : null}
+
+      <div className="grid" style={{ marginTop: 14 }}>
+        {filtered.map((item) => (
+          <ListingCard key={item.id} item={item} />
+        ))}
+      </div>
+
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: "white",
+          borderTop: "1px solid #ddd",
+          padding: 10,
+          display: "grid",
+          gridTemplateColumns: "repeat(4,1fr)",
+          gap: 8,
+          zIndex: 50,
+        }}
+      >
+        <Link href="/" className="btn secondary" style={{ width: "100%" }}>
+          Home
+        </Link>
+
+        <Link href="/post" className="btn" style={{ width: "100%" }}>
+          Post
+        </Link>
+
+        <Link href="/favorites" className="btn secondary" style={{ width: "100%" }}>
+          Saved
+        </Link>
+
+        <Link href="/login" className="btn secondary" style={{ width: "100%" }}>
+          Login
+        </Link>
       </div>
     </div>
   );
