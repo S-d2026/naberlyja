@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { categories, parishes, CategoryId } from "@/data/listings";
 import { supabase } from "@/lib/supabase";
@@ -156,7 +156,7 @@ function ListingCard({ item }: { item: LiveListing }) {
           className="btn"
           href={makeWhatsAppLink(
             phone,
-            `Hi, I found your listing on Naberly JA and I am interested in ${item.title || "your post"}.`
+            `Hi, I found your listing on Naberly and I am interested in ${item.title || "your post"}.`
           )}
           target="_blank"
           rel="noreferrer"
@@ -180,6 +180,7 @@ export default function HomePage() {
   const [rows, setRows] = useState<LiveListing[]>([]);
   const [msg, setMsg] = useState("Loading approved listings...");
   const [loading, setLoading] = useState(true);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     loadApprovedListings();
@@ -273,6 +274,20 @@ export default function HomePage() {
 
   const featuredRows = filteredRows.filter((item) => item.featured || isFreePriority(item));
 
+  function handleCategoryTap(categoryId: CategoryId) {
+    if (categoryId === "sell-offer") {
+      window.location.href = "/post";
+      return;
+    }
+
+    setSelectedCategory(categoryId);
+    setActiveQuickFilter("Newest");
+
+    setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+
   return (
     <div className="grid-main">
       <div className="grid">
@@ -280,7 +295,10 @@ export default function HomePage() {
           <div className="flex between center gap-12">
             <div>
               <div className="tiny muted" style={{ textTransform: "uppercase", letterSpacing: 1 }}>
-                Naberly JA
+                Naberly
+              </div>
+              <div className="small muted" style={{ marginTop: 4 }}>
+                Jamaica Launch • Naberly JA
               </div>
               <div className="h1">What yuh need, near yuh.</div>
               <div className="muted">
@@ -333,15 +351,7 @@ export default function HomePage() {
               <button
                 key={category.id}
                 className={`action-btn ${selectedCategory === category.id ? "active" : ""}`}
-                onClick={() => {
-                  if (category.id === "sell-offer") {
-                    window.location.href = "/post";
-                    return;
-                  }
-
-                  setSelectedCategory(category.id as CategoryId);
-                  setActiveQuickFilter("Newest");
-                }}
+                onClick={() => handleCategoryTap(category.id as CategoryId)}
               >
                 <div style={{ fontSize: 26, marginBottom: 10 }}>{category.emoji}</div>
                 <div style={{ fontWeight: 700 }}>{category.label}</div>
@@ -382,19 +392,21 @@ export default function HomePage() {
           ))}
         </div>
 
-        {loading && <div className="card pad muted">Loading approved listings...</div>}
-        {!loading && msg && <div className="card pad muted">{msg}</div>}
+        <div ref={resultsRef}>
+          {loading && <div className="card pad muted">Loading approved listings...</div>}
+          {!loading && msg && <div className="card pad muted">{msg}</div>}
 
-        <div className="listings-grid">
-          {filteredRows.map((item) => (
-            <ListingCard key={item.id} item={item} />
-          ))}
+          <div className="listings-grid">
+            {filteredRows.map((item) => (
+              <ListingCard key={item.id} item={item} />
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="grid">
         <div className="card pad">
-          <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Launch Control</div>
+          <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Community Activity</div>
 
           <div className="stat-grid">
             <div className="card pad" style={{ background: "#f8fafc" }}>
@@ -422,8 +434,8 @@ export default function HomePage() {
             </div>
 
             <div className="card pad" style={{ background: "#f8fafc" }}>
-              <div className="small muted">Pending approval route</div>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>Admin</div>
+              <div className="small muted">Need to post?</div>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>Create listing</div>
             </div>
           </div>
 

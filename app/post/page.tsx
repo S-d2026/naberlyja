@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { parishes, categories, CategoryId } from "@/data/listings";
 import { supabase } from "@/lib/supabase";
 
@@ -129,7 +130,28 @@ export default function PostPage() {
 
   return (
     <div className="card pad" style={{ maxWidth: 700, margin: "0 auto" }}>
-      <div className="section-title">Sell / Offer Anything</div>
+      <div className="flex between center gap-12">
+        <div>
+          <div className="tiny muted" style={{ textTransform: "uppercase", letterSpacing: 1 }}>
+            Naberly
+          </div>
+          <div className="small muted" style={{ marginTop: 4 }}>
+            Jamaica Launch • Naberly JA
+          </div>
+          <div className="section-title" style={{ marginTop: 8 }}>
+            Sell / Offer Anything
+          </div>
+        </div>
+
+        <div className="flex gap-8 wrap">
+          <Link href="/" className="btn secondary" style={{ width: "auto" }}>
+            Home
+          </Link>
+          <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
+            Login
+          </Link>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} className="grid" style={{ marginTop: 16 }}>
         <input
@@ -142,7 +164,9 @@ export default function PostPage() {
         <select
           className="select"
           value={form.category}
-          onChange={(e) => setForm({ ...form, category: e.target.value as CategoryId })}
+          onChange={(e) =>
+            setForm({ ...form, category: e.target.value as CategoryId })
+          }
         >
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
@@ -207,17 +231,38 @@ export default function PostPage() {
 
         <div className="grid">
           <label style={{ fontWeight: 600 }}>Add picture or flyer</label>
-          <input
-            className="input"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleImageUpload(file);
-            }}
-          />
+
+          <div className="grid" style={{ gridTemplateColumns: "repeat(2, minmax(0,1fr))" }}>
+            <label className="btn" style={{ textAlign: "center", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              Upload Photo / Flyer
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(file);
+                }}
+              />
+            </label>
+
+            <label className="btn secondary" style={{ textAlign: "center", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              Take Picture
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(file);
+                }}
+              />
+            </label>
+          </div>
+
           {uploading && <div className="small muted">Uploading image...</div>}
+
           {imageUrl && (
             <div>
               <img
