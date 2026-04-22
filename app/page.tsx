@@ -52,9 +52,11 @@ function ListingCard({ item }: { item: LiveListing }) {
       <div className="flex between gap-12">
         <div>
           {item.featured ? <span className="badge featured">Featured</span> : null}
+
           <div style={{ fontSize: 20, fontWeight: 700, marginTop: 8 }}>
             {item.title}
           </div>
+
           <div className="small muted">{item.type}</div>
         </div>
 
@@ -151,8 +153,7 @@ export default function HomePage() {
       const matchesParish =
         parish === "all" ? true : item.parish === parish;
 
-      const text = `${item.title} ${item.type} ${item.description}`
-        .toLowerCase();
+      const text = `${item.title} ${item.type} ${item.description}`.toLowerCase();
 
       const matchesSearch = search
         ? text.includes(search.toLowerCase())
@@ -176,6 +177,20 @@ export default function HomePage() {
 
   const featured = rows.filter((x) => x.featured).slice(0, 10);
 
+  function handleCategoryTap(id: CategoryId) {
+    if (id === "sell-offer") {
+      window.location.href = "/post";
+      return;
+    }
+
+    setSelectedCategory(id);
+
+    setTimeout(() => {
+      const el = document.getElementById("results-section");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  }
+
   return (
     <div
       style={{
@@ -191,12 +206,21 @@ export default function HomePage() {
           <div>
             <div style={{ fontWeight: 800, fontSize: 28 }}>Naberly</div>
             <div className="small muted">Jamaica Launch • Naberly JA</div>
+
+            <div style={{ fontSize: 24, fontWeight: 700, marginTop: 10 }}>
+              How can Naberly help you today?
+            </div>
+
+            <div className="small muted" style={{ marginTop: 8 }}>
+              Your Naberhood at your fingertips.
+            </div>
           </div>
 
           <div className="flex gap-8 wrap">
             <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
               Login
             </Link>
+
             <Link href="/signup" className="btn secondary" style={{ width: "auto" }}>
               Sign Up
             </Link>
@@ -217,6 +241,7 @@ export default function HomePage() {
             onChange={(e) => setParish(e.target.value)}
           >
             <option value="all">All parishes</option>
+
             {parishes.map((p) => (
               <option key={p}>{p}</option>
             ))}
@@ -230,13 +255,7 @@ export default function HomePage() {
               className={`action-btn ${
                 selectedCategory === c.id ? "active" : ""
               }`}
-              onClick={() => {
-                if (c.id === "sell-offer") {
-                  window.location.href = "/post";
-                  return;
-                }
-                setSelectedCategory(c.id as CategoryId);
-              }}
+              onClick={() => handleCategoryTap(c.id as CategoryId)}
             >
               <div style={{ fontSize: 24 }}>{c.emoji}</div>
               <div>{c.label}</div>
@@ -250,6 +269,7 @@ export default function HomePage() {
           <div style={{ fontSize: 22, fontWeight: 700 }}>
             Featured Nearby
           </div>
+
           <div className="small muted">Swipe sideways</div>
         </div>
 
@@ -287,7 +307,7 @@ export default function HomePage() {
         </div>
       ) : null}
 
-      <div className="grid" style={{ marginTop: 14 }}>
+      <div id="results-section" className="grid" style={{ marginTop: 14 }}>
         {filtered.map((item) => (
           <ListingCard key={item.id} item={item} />
         ))}
