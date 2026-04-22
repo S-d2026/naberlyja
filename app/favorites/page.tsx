@@ -58,22 +58,20 @@ export default function FavoritesPage() {
       return;
     }
 
-    setRows(((data ?? []) as unknown as FavoriteRow[]));
+    setRows((data ?? []) as unknown as FavoriteRow[]);
     setMsg(data && data.length ? "" : "No saved items yet.");
   }
 
   function getListing(item: FavoriteRow): ListingItem | null {
     if (!item.listings) return null;
-    if (Array.isArray(item.listings)) {
-      return item.listings[0] || null;
-    }
+    if (Array.isArray(item.listings)) return item.listings[0] || null;
     return item.listings;
   }
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: 12 }}>
+    <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 12 }}>
       <div className="card pad">
-        <div className="flex between center gap-12">
+        <div className="flex between center gap-12 wrap">
           <div>
             <div style={{ fontWeight: 800, fontSize: 28 }}>Saved Items</div>
             <div className="small muted">Listings you want to come back to</div>
@@ -91,7 +89,14 @@ export default function FavoritesPage() {
         </div>
       ) : null}
 
-      <div className="grid" style={{ marginTop: 14 }}>
+      <div
+        style={{
+          display: "grid",
+          gap: 16,
+          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          marginTop: 14,
+        }}
+      >
         {rows.map((row) => {
           const item = getListing(row);
           if (!item) return null;

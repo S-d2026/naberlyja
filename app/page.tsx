@@ -170,10 +170,11 @@ export default function HomePage() {
   const [quick, setQuick] = useState<QuickFilter>("Newest");
   const [msg, setMsg] = useState("");
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
     loadListings();
-    loadSaved();
+    loadSavedAndSession();
 
     const timer = setInterval(() => {
       loadListings();
@@ -200,14 +201,19 @@ export default function HomePage() {
     setMsg("");
   }
 
-  async function loadSaved() {
+  async function loadSavedAndSession() {
     if (!supabase) return;
 
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
-    if (!session) return;
+    if (!session) {
+      setSignedIn(false);
+      return;
+    }
+
+    setSignedIn(true);
 
     const { data, error } = await supabase
       .from("favorite_listings")
@@ -217,6 +223,12 @@ export default function HomePage() {
     if (!error && data) {
       setSavedIds(new Set(data.map((x: { listing_id: string }) => x.listing_id)));
     }
+  }
+
+  async function handleSignOut() {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    window.location.href = "/";
   }
 
   function handleSaved(id: string) {
@@ -305,13 +317,21 @@ export default function HomePage() {
             </div>
 
             <div className="flex gap-8 wrap">
-              <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
-                Login
-              </Link>
+              {!signedIn ? (
+                <>
+                  <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
+                    Login
+                  </Link>
 
-              <Link href="/signup" className="btn secondary" style={{ width: "auto" }}>
-                Sign Up
-              </Link>
+                  <Link href="/signup" className="btn secondary" style={{ width: "auto" }}>
+                    Sign Up
+                  </Link>
+                </>
+              ) : (
+                <button className="btn secondary" style={{ width: "auto" }} onClick={handleSignOut}>
+                  Sign Out
+                </button>
+              )}
             </div>
           </div>
 
@@ -453,9 +473,15 @@ export default function HomePage() {
           Saved
         </Link>
 
-        <Link href="/login" className="btn secondary" style={{ width: "100%" }}>
-          Login
-        </Link>
+        {!signedIn ? (
+          <Link href="/login" className="btn secondary" style={{ width: "100%" }}>
+            Login
+          </Link>
+        ) : (
+          <button className="btn secondary" style={{ width: "100%" }} onClick={handleSignOut}>
+            Sign Out
+          </button>
+        )}
       </div>
     </div>
   );

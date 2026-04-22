@@ -129,157 +129,182 @@ export default function PostPage() {
   }
 
   return (
-    <div className="card pad" style={{ maxWidth: 700, margin: "0 auto" }}>
-      <div className="flex between center gap-12">
-        <div>
-          <div className="tiny muted" style={{ textTransform: "uppercase", letterSpacing: 1 }}>
-            Naberly
-          </div>
-          <div className="small muted" style={{ marginTop: 4 }}>
-            Jamaica Launch • Naberly JA
-          </div>
-          <div className="section-title" style={{ marginTop: 8 }}>
-            Sell / Offer Anything
-          </div>
-        </div>
-
-        <div className="flex gap-8 wrap">
-          <Link href="/" className="btn secondary" style={{ width: "auto" }}>
-            Home
-          </Link>
-          <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
-            Login
-          </Link>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="grid" style={{ marginTop: 16 }}>
-        <input
-          className="input"
-          placeholder="Title"
-          value={form.title}
-          onChange={(e) => setForm({ ...form, title: e.target.value })}
-        />
-
-        <select
-          className="select"
-          value={form.category}
-          onChange={(e) =>
-            setForm({ ...form, category: e.target.value as CategoryId })
-          }
-        >
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-
-        <input
-          className="input"
-          placeholder="Type (eggs, meals, plumbing, taxi, flyer event, tutoring)"
-          value={form.type}
-          onChange={(e) => setForm({ ...form, type: e.target.value })}
-        />
-
-        <input
-          className="input"
-          placeholder="Price or Free"
-          value={form.price}
-          onChange={(e) => setForm({ ...form, price: e.target.value })}
-        />
-
-        <select
-          className="select"
-          value={form.parish}
-          onChange={(e) => setForm({ ...form, parish: e.target.value })}
-        >
-          {parishes.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-
-        <input
-          className="input"
-          placeholder="District (required)"
-          value={form.district}
-          onChange={(e) => setForm({ ...form, district: e.target.value })}
-        />
-
-        <input
-          className="input"
-          placeholder="Community"
-          value={form.community}
-          onChange={(e) => setForm({ ...form, community: e.target.value })}
-        />
-
-        <input
-          className="input"
-          placeholder="Phone / WhatsApp"
-          value={form.contact_phone}
-          onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
-        />
-
-        <textarea
-          className="textarea"
-          placeholder="Description"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-        />
-
-        <div className="grid">
-          <label style={{ fontWeight: 600 }}>Add picture or flyer</label>
-
-          <div className="grid" style={{ gridTemplateColumns: "repeat(2, minmax(0,1fr))" }}>
-            <label className="btn" style={{ textAlign: "center", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-              Upload Photo / Flyer
-              <input
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(file);
-                }}
-              />
-            </label>
-
-            <label className="btn secondary" style={{ textAlign: "center", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-              Take Picture
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(file);
-                }}
-              />
-            </label>
-          </div>
-
-          {uploading && <div className="small muted">Uploading image...</div>}
-
-          {imageUrl && (
-            <div>
-              <img
-                src={imageUrl}
-                alt="Listing preview"
-                style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 12 }}
-              />
+    <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 12 }}>
+      <div className="card pad">
+        <div className="flex between center gap-12 wrap">
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 28 }}>Naberly</div>
+            <div className="small muted">Jamaica Launch • Naberly JA</div>
+            <div className="section-title" style={{ marginTop: 8 }}>
+              Sell / Offer Anything
             </div>
-          )}
+          </div>
+
+          <div className="flex gap-8 wrap">
+            <Link href="/" className="btn secondary" style={{ width: "auto" }}>
+              Home
+            </Link>
+            <Link href="/favorites" className="btn secondary" style={{ width: "auto" }}>
+              Saved
+            </Link>
+          </div>
         </div>
 
-        <button className="btn" disabled={uploading}>
-          {uploading ? "Uploading..." : "Publish Listing"}
-        </button>
+        <form onSubmit={handleSubmit} className="grid" style={{ marginTop: 16 }}>
+          <input
+            className="input"
+            placeholder="Title"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+          />
 
-        {msg && <div className="small muted">{msg}</div>}
-      </form>
+          <select
+            className="select"
+            value={form.category}
+            onChange={(e) =>
+              setForm({ ...form, category: e.target.value as CategoryId })
+            }
+          >
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+
+          <input
+            className="input"
+            placeholder="Type (eggs, meals, plumbing, taxi, flyer event, tutoring)"
+            value={form.type}
+            onChange={(e) => setForm({ ...form, type: e.target.value })}
+          />
+
+          <input
+            className="input"
+            placeholder="Price or Free"
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
+          />
+
+          <select
+            className="select"
+            value={form.parish}
+            onChange={(e) => setForm({ ...form, parish: e.target.value })}
+          >
+            {parishes.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+
+          <input
+            className="input"
+            placeholder="District (required)"
+            value={form.district}
+            onChange={(e) => setForm({ ...form, district: e.target.value })}
+          />
+
+          <input
+            className="input"
+            placeholder="Community"
+            value={form.community}
+            onChange={(e) => setForm({ ...form, community: e.target.value })}
+          />
+
+          <input
+            className="input"
+            placeholder="Phone / WhatsApp"
+            value={form.contact_phone}
+            onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
+          />
+
+          <textarea
+            className="textarea"
+            placeholder="Description"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+
+          <div className="grid">
+            <label style={{ fontWeight: 600 }}>Add picture or flyer</label>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              }}
+            >
+              <label
+                className="btn"
+                style={{
+                  textAlign: "center",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                Upload Photo / Flyer
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file);
+                  }}
+                />
+              </label>
+
+              <label
+                className="btn secondary"
+                style={{
+                  textAlign: "center",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                Take Picture
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file);
+                  }}
+                />
+              </label>
+            </div>
+
+            {uploading && <div className="small muted">Uploading image...</div>}
+
+            {imageUrl && (
+              <div>
+                <img
+                  src={imageUrl}
+                  alt="Listing preview"
+                  style={{
+                    width: "100%",
+                    maxHeight: 260,
+                    objectFit: "cover",
+                    borderRadius: 12,
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          <button className="btn" disabled={uploading}>
+            {uploading ? "Uploading..." : "Publish Listing"}
+          </button>
+
+          {msg && <div className="small muted">{msg}</div>}
+        </form>
+      </div>
     </div>
   );
 }

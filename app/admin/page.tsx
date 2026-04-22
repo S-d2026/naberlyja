@@ -111,31 +111,40 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
-      <div className="flex between center gap-12">
-        <div>
-          <h1 style={{ fontSize: 30, fontWeight: 700, margin: 0 }}>Admin Dashboard</h1>
-          <p style={{ marginTop: 8 }}>Moderate listings</p>
-        </div>
+    <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 12 }}>
+      <div className="card pad">
+        <div className="flex between center gap-12 wrap">
+          <div>
+            <h1 style={{ fontSize: 30, fontWeight: 700, margin: 0 }}>Admin Dashboard</h1>
+            <p style={{ marginTop: 8 }}>Moderate listings</p>
+          </div>
 
-        <Link href="/" className="btn secondary" style={{ width: "auto" }}>
-          Home
-        </Link>
+          <Link href="/" className="btn secondary" style={{ width: "auto" }}>
+            Home
+          </Link>
+        </div>
       </div>
 
-      {loading && <p>Loading...</p>}
-      {msg && <p>{msg}</p>}
+      {loading && <p style={{ marginTop: 14 }}>Loading...</p>}
+      {msg && (
+        <div className="card pad muted" style={{ marginTop: 14 }}>
+          {msg}
+        </div>
+      )}
 
-      <div style={{ display: "grid", gap: 16, marginTop: 20 }}>
+      <div
+        style={{
+          display: "grid",
+          gap: 16,
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          marginTop: 14,
+        }}
+      >
         {rows.map((row) => (
           <div
             key={row.id}
-            style={{
-              border: "1px solid #ddd",
-              padding: 16,
-              borderRadius: 12,
-              background: "white",
-            }}
+            className="card pad"
+            style={{ background: "white" }}
           >
             <div className="flex between gap-12">
               <div>
