@@ -1,28 +1,57 @@
 import "./globals.css";
 import Link from "next/link";
-import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Naberly JA",
-  description: "What yuh need, near yuh.",
+export const metadata = {
+  title: "Naberly",
+  description: "Your Naberhood at your fingertips.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body>
-        <div className="container">
-          <div className="flex between center gap-12" style={{ marginBottom: 16 }}>
-            <Link href="/" style={{ fontWeight: 800, fontSize: 22 }}>Naberly JA</Link>
-            <div className="flex gap-12 wrap small">
-              <Link href="/login">Login</Link>
-              <Link href="/signup">Sign Up</Link>
-              <Link href="/post">Post</Link>
-              <Link href="/favorites">Saved</Link>
-              <Link href="/admin">Admin</Link>
-              <Link href="/featured">Featured</Link>
-            </div>
+        <div
+          style={{
+            maxWidth: 900,
+            margin: "0 auto",
+            padding: 12,
+            paddingBottom: 90,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginBottom: 14,
+            }}
+          >
+            <Link href="/" className="btn secondary" style={{ width: "auto" }}>
+              Home
+            </Link>
+
+            <Link href="/login" className="btn secondary" style={{ width: "auto" }}>
+              Login
+            </Link>
+
+            <Link href="/signup" className="btn secondary" style={{ width: "auto" }}>
+              Sign Up
+            </Link>
+
+            <Link href="/post" className="btn" style={{ width: "auto" }}>
+              Post
+            </Link>
+
+            <Link href="/favorites" className="btn secondary" style={{ width: "auto" }}>
+              Saved
+            </Link>
           </div>
+
           {children}
         </div>
       </body>
