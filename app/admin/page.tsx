@@ -17,104 +17,64 @@ type Listing = {
   image_url: string | null;
   description: string | null;
   created_at: string | null;
-  boost_type: string | null;
-  boost_payment_status: string | null;
-  boost_expires_at: string | null;
-  first_boost_used: boolean | null;
 };
 
 export default function AdminPage() {
   const [rows, setRows] = useState<Listing[]>([]);
   const [msg, setMsg] = useState("Loading...");
-  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
     loadRows();
   }, []);
 
   async function loadRows() {
-    setLoading(true);
-
     const { data, error } = await supabase
       .from("listings")
       .select("*")
-      .in("status", ["pending", "approved", "hidden", "archived"])
       .order("created_at", { ascending: false });
 
     if (error) {
       setMsg(error.message);
-      setRows([]);
-      setLoading(false);
       return;
     }
 
     setRows(data || []);
-    setMsg(data && data.length ? "" : "No listings found.");
-    setLoading(false);
+    setMsg("");
   }
 
-  async function updateRow(id: string, updates: Record<string, unknown>, successText: string) {
-    const { error } = await supabase.from("listings").update(updates).eq("id", id);
+  async function setStatus(id: string, status: string) {
+    const { error } = await supabase
+      .from("listings")
+      .update({ status })
+      .eq("id", id);
 
     if (error) {
       setMsg(error.message);
       return;
     }
 
-    setMsg(successText);
+    setMsg(`Listing moved to ${status}.`);
     loadRows();
   }
 
-  function addDays(days: number) {
-    return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-  }
+  async function setFeatured(id: string, featured: boolean) {
+    const { error } = await supabase
+      .from("listings")
+      .update({ featured })
+      .eq("id", id);
 
-  async function activateBoost(id: string, type: string, days: number, firstFree = false) {
-    await updateRow(
-      id,
-      {
-        featured: true,
-        status: "approved",
-        boost_type: type,
-        boost_payment_status: firstFree ? "first_boost_free" : "manual_confirmed",
-        boost_expires_at: addDays(days),
-        first_boost_used: true,
-      },
-      `${type} boost activated.`
-    );
-  }
+    if (error) {
+      setMsg(error.message);
+      return;
+    }
 
-  async function endBoost(id: string) {
-    await updateRow(
-      id,
-      {
-        featured: false,
-        boost_type: null,
-        boost_payment_status: null,
-        boost_expires_at: null,
-      },
-      "Boost ended."
-    );
-  }
-
-  async function approve(id: string) {
-    updateRow(id, { status: "approved" }, "Listing approved.");
-  }
-
-  async function reject(id: string) {
-    updateRow(id, { status: "rejected" }, "Listing rejected.");
-  }
-
-  async function hideListing(id: string) {
-    updateRow(id, { status: "hidden" }, "Listing hidden.");
-  }
-
-  async function archiveListing(id: string) {
-    updateRow(id, { status: "archived" }, "Listing archived.");
+    setMsg(featured ? "Listing featured." : "Listing unfeatured.");
+    loadRows();
   }
 
   async function deleteListing(id: string) {
-    const ok = window.confirm("Delete this listing permanently?");
+    const ok = window.confirm("Delete permanently? This cannot be undone.");
     if (!ok) return;
 
     const { error } = await supabase.from("listings").delete().eq("id", id);
@@ -128,13 +88,20 @@ export default function AdminPage() {
     loadRows();
   }
 
+  const visibleRows =
+    filter === "all" ? rows : rows.filter((row) => row.status === filter);
+
   return (
     <div style={{ width: "100%", maxWidth: 1100, margin: "0 auto", padding: 12 }}>
       <div className="card pad">
         <div className="flex between center gap-12 wrap">
           <div>
-            <h1 style={{ fontSize: 30, fontWeight: 700, margin: 0 }}>Admin Dashboard</h1>
-            <p style={{ marginTop: 8 }}>Moderate listings and manage boosts</p>
+            <h1 style={{ fontSize: 30, fontWeight: 700, margin: 0 }}>
+              Admin Cleanup
+            </h1>
+            <p style={{ marginTop: 8 }}>
+              Archive old posts instead of deleting them.
+            </p>
           </div>
 
           <Link href="/" className="btn secondary" style={{ width: "auto" }}>
@@ -143,13 +110,30 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {loading && <p style={{ marginTop: 14 }}>Loading...</p>}
-
       {msg && (
         <div className="card pad muted" style={{ marginTop: 14 }}>
           {msg}
         </div>
       )}
+
+      <div className="card pad" style={{ marginTop: 14 }}>
+        <div style={{ fontWeight: 700, marginBottom: 10 }}>Filter</div>
+
+        <div className="flex gap-8 wrap">
+          {["all", "pending", "approved", "hidden", "archived", "rejected"].map(
+            (item) => (
+              <button
+                key={item}
+                className={filter === item ? "btn" : "btn secondary"}
+                style={{ width: "auto" }}
+                onClick={() => setFilter(item)}
+              >
+                {item}
+              </button>
+            )
+          )}
+        </div>
+      </div>
 
       <div
         style={{
@@ -159,39 +143,23 @@ export default function AdminPage() {
           marginTop: 14,
         }}
       >
-        {rows.map((row) => (
-          <div key={row.id} className="card pad" style={{ background: "white" }}>
-            <h3 style={{ margin: 0 }}>{row.title || "Untitled"}</h3>
+        {visibleRows.map((row) => (
+          <div key={row.id} className="card pad">
+            <div style={{ fontSize: 20, fontWeight: 800 }}>
+              {row.title || "Untitled"}
+            </div>
 
-            <p style={{ margin: "8px 0" }}>
+            <div className="small muted" style={{ marginTop: 6 }}>
               {[row.community, row.district, row.parish].filter(Boolean).join(", ")}
-            </p>
+            </div>
 
-            <p style={{ margin: "8px 0" }}>
+            <div className="small" style={{ marginTop: 8 }}>
               {row.type} {row.price ? `• ${row.price}` : ""}
-            </p>
+            </div>
 
-            <p style={{ margin: "8px 0" }}>
-              Status: {row.status || "unknown"} {row.featured ? "• Featured" : ""}
-            </p>
-
-            <div className="card pad" style={{ background: "#f8fafc", marginTop: 12 }}>
-              <strong>Boost Status</strong>
-              <div className="small muted" style={{ marginTop: 6 }}>
-                Type: {row.boost_type || "None"}
-              </div>
-              <div className="small muted">
-                Payment: {row.boost_payment_status || "None"}
-              </div>
-              <div className="small muted">
-                Expires:{" "}
-                {row.boost_expires_at
-                  ? new Date(row.boost_expires_at).toLocaleString()
-                  : "Not boosted"}
-              </div>
-              <div className="small muted">
-                First boost used: {row.first_boost_used ? "Yes" : "No"}
-              </div>
+            <div className="small muted" style={{ marginTop: 8 }}>
+              Status: <strong>{row.status || "none"}</strong>{" "}
+              {row.featured ? "• Featured" : ""}
             </div>
 
             {row.image_url ? (
@@ -200,7 +168,7 @@ export default function AdminPage() {
                 alt={row.title || "listing image"}
                 style={{
                   width: "100%",
-                  maxHeight: 240,
+                  maxHeight: 220,
                   objectFit: "cover",
                   borderRadius: 12,
                   marginTop: 12,
@@ -208,62 +176,72 @@ export default function AdminPage() {
               />
             ) : null}
 
-            {row.description ? <p style={{ marginTop: 12 }}>{row.description}</p> : null}
+            {row.description ? (
+              <p className="small" style={{ marginTop: 10 }}>
+                {row.description}
+              </p>
+            ) : null}
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                 gap: 10,
                 marginTop: 14,
               }}
             >
-              <button className="btn" onClick={() => approve(row.id)}>
-                Approve
+              <button className="btn" onClick={() => setStatus(row.id, "approved")}>
+                Approve / Unhide
               </button>
 
-              <button className="btn secondary" onClick={() => reject(row.id)}>
-                Reject
-              </button>
-
-              <button className="btn secondary" onClick={() => hideListing(row.id)}>
-                Hide
-              </button>
-
-              <button className="btn secondary" onClick={() => archiveListing(row.id)}>
+              <button
+                className="btn secondary"
+                onClick={() => setStatus(row.id, "archived")}
+              >
                 Archive
               </button>
 
-              <button className="btn secondary" onClick={() => activateBoost(row.id, "first_free", 1, true)}>
-                First Boost Free
-              </button>
-
-              <button className="btn secondary" onClick={() => activateBoost(row.id, "daily", 1)}>
-                Daily Boost
-              </button>
-
-              <button className="btn secondary" onClick={() => activateBoost(row.id, "weekend", 3)}>
-                Weekend Boost
-              </button>
-
-              <button className="btn secondary" onClick={() => activateBoost(row.id, "weekly", 7)}>
-                Weekly Boost
-              </button>
-
-              <button className="btn secondary" onClick={() => endBoost(row.id)}>
-                End Boost
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
               <button
                 className="btn secondary"
-                style={{ background: "#fee2e2", color: "#991b1b", width: "100%" }}
-                onClick={() => deleteListing(row.id)}
+                onClick={() => setStatus(row.id, "hidden")}
               >
-                Delete Permanently
+                Hide
+              </button>
+
+              <button
+                className="btn secondary"
+                onClick={() => setStatus(row.id, "rejected")}
+              >
+                Reject
+              </button>
+
+              <button
+                className="btn secondary"
+                onClick={() => setFeatured(row.id, true)}
+              >
+                Feature
+              </button>
+
+              <button
+                className="btn secondary"
+                onClick={() => setFeatured(row.id, false)}
+              >
+                Unfeature
               </button>
             </div>
+
+            <button
+              className="btn secondary"
+              style={{
+                marginTop: 10,
+                background: "#fee2e2",
+                color: "#991b1b",
+                width: "100%",
+              }}
+              onClick={() => deleteListing(row.id)}
+            >
+              Delete Permanently
+            </button>
           </div>
         ))}
       </div>
