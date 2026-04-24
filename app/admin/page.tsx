@@ -17,6 +17,10 @@ type Listing = {
   image_url: string | null;
   description: string | null;
   created_at: string | null;
+  boost_type: string | null;
+  boost_payment_status: string | null;
+  boost_expires_at: string | null;
+  first_boost_used: boolean | null;
 };
 
 export default function AdminPage() {
@@ -31,12 +35,6 @@ export default function AdminPage() {
   async function loadRows() {
     setLoading(true);
 
-    if (!supabase) {
-      setMsg("Supabase is not configured.");
-      setLoading(false);
-      return;
-    }
-
     const { data, error } = await supabase
       .from("listings")
       .select("*")
@@ -44,7 +42,7 @@ export default function AdminPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      setMsg(`Supabase error: ${error.message}`);
+      setMsg(error.message);
       setRows([]);
       setLoading(false);
       return;
@@ -56,8 +54,6 @@ export default function AdminPage() {
   }
 
   async function updateRow(id: string, updates: Record<string, unknown>, successText: string) {
-    if (!supabase) return;
-
     const { error } = await supabase.from("listings").update(updates).eq("id", id);
 
     if (error) {
@@ -67,6 +63,38 @@ export default function AdminPage() {
 
     setMsg(successText);
     loadRows();
+  }
+
+  function addDays(days: number) {
+    return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  async function activateBoost(id: string, type: string, days: number, firstFree = false) {
+    await updateRow(
+      id,
+      {
+        featured: true,
+        status: "approved",
+        boost_type: type,
+        boost_payment_status: firstFree ? "first_boost_free" : "manual_confirmed",
+        boost_expires_at: addDays(days),
+        first_boost_used: true,
+      },
+      `${type} boost activated.`
+    );
+  }
+
+  async function endBoost(id: string) {
+    await updateRow(
+      id,
+      {
+        featured: false,
+        boost_type: null,
+        boost_payment_status: null,
+        boost_expires_at: null,
+      },
+      "Boost ended."
+    );
   }
 
   async function approve(id: string) {
@@ -85,17 +113,7 @@ export default function AdminPage() {
     updateRow(id, { status: "archived" }, "Listing archived.");
   }
 
-  async function feature(id: string) {
-    updateRow(id, { featured: true }, "Listing featured.");
-  }
-
-  async function unfeature(id: string) {
-    updateRow(id, { featured: false }, "Listing unfeatured.");
-  }
-
   async function deleteListing(id: string) {
-    if (!supabase) return;
-
     const ok = window.confirm("Delete this listing permanently?");
     if (!ok) return;
 
@@ -111,12 +129,12 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 12 }}>
+    <div style={{ width: "100%", maxWidth: 1100, margin: "0 auto", padding: 12 }}>
       <div className="card pad">
         <div className="flex between center gap-12 wrap">
           <div>
             <h1 style={{ fontSize: 30, fontWeight: 700, margin: 0 }}>Admin Dashboard</h1>
-            <p style={{ marginTop: 8 }}>Moderate listings</p>
+            <p style={{ marginTop: 8 }}>Moderate listings and manage boosts</p>
           </div>
 
           <Link href="/" className="btn secondary" style={{ width: "auto" }}>
@@ -126,6 +144,7 @@ export default function AdminPage() {
       </div>
 
       {loading && <p style={{ marginTop: 14 }}>Loading...</p>}
+
       {msg && (
         <div className="card pad muted" style={{ marginTop: 14 }}>
           {msg}
@@ -141,23 +160,37 @@ export default function AdminPage() {
         }}
       >
         {rows.map((row) => (
-          <div
-            key={row.id}
-            className="card pad"
-            style={{ background: "white" }}
-          >
-            <div className="flex between gap-12">
-              <div>
-                <h3 style={{ margin: 0 }}>{row.title || "Untitled"}</h3>
-                <p style={{ margin: "8px 0" }}>
-                  {[row.community, row.district, row.parish].filter(Boolean).join(", ")}
-                </p>
-                <p style={{ margin: "8px 0" }}>
-                  {row.type} {row.price ? `• ${row.price}` : ""}
-                </p>
-                <p style={{ margin: "8px 0" }}>
-                  Status: {row.status || "unknown"} {row.featured ? "• Featured" : ""}
-                </p>
+          <div key={row.id} className="card pad" style={{ background: "white" }}>
+            <h3 style={{ margin: 0 }}>{row.title || "Untitled"}</h3>
+
+            <p style={{ margin: "8px 0" }}>
+              {[row.community, row.district, row.parish].filter(Boolean).join(", ")}
+            </p>
+
+            <p style={{ margin: "8px 0" }}>
+              {row.type} {row.price ? `• ${row.price}` : ""}
+            </p>
+
+            <p style={{ margin: "8px 0" }}>
+              Status: {row.status || "unknown"} {row.featured ? "• Featured" : ""}
+            </p>
+
+            <div className="card pad" style={{ background: "#f8fafc", marginTop: 12 }}>
+              <strong>Boost Status</strong>
+              <div className="small muted" style={{ marginTop: 6 }}>
+                Type: {row.boost_type || "None"}
+              </div>
+              <div className="small muted">
+                Payment: {row.boost_payment_status || "None"}
+              </div>
+              <div className="small muted">
+                Expires:{" "}
+                {row.boost_expires_at
+                  ? new Date(row.boost_expires_at).toLocaleString()
+                  : "Not boosted"}
+              </div>
+              <div className="small muted">
+                First boost used: {row.first_boost_used ? "Yes" : "No"}
               </div>
             </div>
 
@@ -188,21 +221,37 @@ export default function AdminPage() {
               <button className="btn" onClick={() => approve(row.id)}>
                 Approve
               </button>
+
               <button className="btn secondary" onClick={() => reject(row.id)}>
                 Reject
               </button>
-              <button className="btn secondary" onClick={() => feature(row.id)}>
-                Feature
-              </button>
 
-              <button className="btn secondary" onClick={() => unfeature(row.id)}>
-                Unfeature
-              </button>
               <button className="btn secondary" onClick={() => hideListing(row.id)}>
                 Hide
               </button>
+
               <button className="btn secondary" onClick={() => archiveListing(row.id)}>
                 Archive
+              </button>
+
+              <button className="btn secondary" onClick={() => activateBoost(row.id, "first_free", 1, true)}>
+                First Boost Free
+              </button>
+
+              <button className="btn secondary" onClick={() => activateBoost(row.id, "daily", 1)}>
+                Daily Boost
+              </button>
+
+              <button className="btn secondary" onClick={() => activateBoost(row.id, "weekend", 3)}>
+                Weekend Boost
+              </button>
+
+              <button className="btn secondary" onClick={() => activateBoost(row.id, "weekly", 7)}>
+                Weekly Boost
+              </button>
+
+              <button className="btn secondary" onClick={() => endBoost(row.id)}>
+                End Boost
               </button>
             </div>
 
