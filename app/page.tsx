@@ -44,6 +44,43 @@ function normalizeCategory(value: string | null): CategoryId | "" {
   return valid.includes(value as CategoryId) ? (value as CategoryId) : "";
 }
 
+function getCategoryPlaceholder(item: LiveListing) {
+  const category = normalizeCategory(item.category);
+  const title = (item.title || "").toLowerCase();
+  const type = (item.type || "").toLowerCase();
+  const text = `${title} ${type} ${item.description || ""}`.toLowerCase();
+
+  if (category === "need-food" || text.includes("food") || text.includes("meal") || text.includes("egg")) {
+    return { emoji: "🍲", label: "Food / Meals" };
+  }
+
+  if (category === "events" || text.includes("event") || text.includes("party") || text.includes("fair")) {
+    return { emoji: "🎟️", label: "Event / Flyer" };
+  }
+
+  if (category === "need-work" || text.includes("job") || text.includes("work")) {
+    return { emoji: "💼", label: "Work / Jobs" };
+  }
+
+  if (category === "hire-worker" || category === "services" || text.includes("service") || text.includes("plumb") || text.includes("hair")) {
+    return { emoji: "🛠️", label: "Local Service" };
+  }
+
+  if (category === "need-ride" || text.includes("ride") || text.includes("taxi") || text.includes("delivery")) {
+    return { emoji: "🚗", label: "Ride / Delivery" };
+  }
+
+  if (category === "emergency-help" || text.includes("help") || text.includes("urgent")) {
+    return { emoji: "🤝", label: "Community Help" };
+  }
+
+  if (category === "buy-sell" || category === "sell-offer") {
+    return { emoji: "🛍️", label: "Buy / Sell" };
+  }
+
+  return { emoji: "📍", label: "Nearby Listing" };
+}
+
 function SaveButton({
   listingId,
   savedIds,
@@ -88,6 +125,50 @@ function SaveButton({
   );
 }
 
+function ListingImage({ item }: { item: LiveListing }) {
+  if (item.image_url) {
+    return (
+      <img
+        src={item.image_url}
+        alt={item.title || "listing"}
+        loading="lazy"
+        style={{
+          width: "100%",
+          height: 180,
+          objectFit: "cover",
+          borderRadius: 12,
+          marginTop: 12,
+        }}
+      />
+    );
+  }
+
+  const placeholder = getCategoryPlaceholder(item);
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: 180,
+        borderRadius: 12,
+        marginTop: 12,
+        background: "#f8fafc",
+        border: "1px solid #e5e7eb",
+        display: "grid",
+        placeItems: "center",
+        textAlign: "center",
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 48 }}>{placeholder.emoji}</div>
+        <div className="small muted" style={{ marginTop: 8 }}>
+          {placeholder.label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ListingCard({
   item,
   savedIds,
@@ -119,19 +200,7 @@ function ListingCard({
         📍 {[item.community, item.district, item.parish].filter(Boolean).join(", ")}
       </div>
 
-      {item.image_url ? (
-        <img
-          src={item.image_url}
-          alt="listing"
-          style={{
-            width: "100%",
-            height: 180,
-            objectFit: "cover",
-            borderRadius: 12,
-            marginTop: 12,
-          }}
-        />
-      ) : null}
+      <ListingImage item={item} />
 
       {item.description ? (
         <div className="small" style={{ marginTop: 10 }}>
