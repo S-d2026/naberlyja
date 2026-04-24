@@ -16,12 +16,13 @@ function isFreePriority(form: {
   const rescueKeywords = ["rescue", "donation", "donate", "meal", "meals", "food", "groceries"];
   const hasRescueWord = rescueKeywords.some((word) => text.includes(word));
 
-  const eligibleCategory =
-    form.category === "need-food" ||
-    form.category === "sell-offer" ||
-    form.category === "emergency-help";
-
-  return isFree && (eligibleCategory || hasRescueWord);
+  return (
+    isFree &&
+    (form.category === "need-food" ||
+      form.category === "sell-offer" ||
+      form.category === "emergency-help" ||
+      hasRescueWord)
+  );
 }
 
 export default function PostPage() {
@@ -35,11 +36,21 @@ export default function PostPage() {
     contact_phone: "",
     description: "",
     category: "sell-offer" as CategoryId,
+    delivery_options: [] as string[],
   });
 
   const [msg, setMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
+
+  function toggleDelivery(option: string) {
+    setForm((prev) => ({
+      ...prev,
+      delivery_options: prev.delivery_options.includes(option)
+        ? prev.delivery_options.filter((x) => x !== option)
+        : [...prev.delivery_options, option],
+    }));
+  }
 
   async function handleImageUpload(file: File) {
     if (!supabase) {
@@ -83,6 +94,10 @@ export default function PostPage() {
       return;
     }
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
     const autoFeatured = isFreePriority(form);
 
     const { error } = await supabase.from("listings").insert({
@@ -97,6 +112,9 @@ export default function PostPage() {
       category: form.category,
       image_url: imageUrl || null,
       status: "pending",
+      availability_status: "available",
+      delivery_options: form.delivery_options,
+      user_id: session?.user?.id || null,
       featured: autoFeatured,
       featured_expires_at: autoFeatured
         ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
@@ -108,11 +126,7 @@ export default function PostPage() {
       return;
     }
 
-    setMsg(
-      autoFeatured
-        ? "Listing submitted for approval. Free priority item marked for featured placement."
-        : "Listing submitted for approval."
-    );
+    setMsg("Listing submitted for approval. Once approved, you can share it with customers from My Listings.");
 
     setForm({
       title: "",
@@ -124,9 +138,18 @@ export default function PostPage() {
       contact_phone: "",
       description: "",
       category: "sell-offer",
+      delivery_options: [],
     });
     setImageUrl("");
   }
+
+  const deliveryOptions = [
+    "Pickup",
+    "Local delivery",
+    "Seller delivery",
+    "Buyer arranges",
+    "Knutsford Express",
+  ];
 
   return (
     <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 12 }}>
@@ -144,158 +167,73 @@ export default function PostPage() {
             <Link href="/" className="btn secondary" style={{ width: "auto" }}>
               Home
             </Link>
-            <Link href="/favorites" className="btn secondary" style={{ width: "auto" }}>
-              Saved
+            <Link href="/my-listings" className="btn secondary" style={{ width: "auto" }}>
+              My Listings
             </Link>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="grid" style={{ marginTop: 16 }}>
-          <input
-            className="input"
-            placeholder="Title"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-          />
+          <input className="input" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
 
-          <select
-            className="select"
-            value={form.category}
-            onChange={(e) =>
-              setForm({ ...form, category: e.target.value as CategoryId })
-            }
-          >
+          <select className="select" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as CategoryId })}>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
+              <option key={c.id} value={c.id}>{c.label}</option>
             ))}
           </select>
 
-          <input
-            className="input"
-            placeholder="Type (eggs, meals, plumbing, taxi, flyer event, tutoring)"
-            value={form.type}
-            onChange={(e) => setForm({ ...form, type: e.target.value })}
-          />
+          <input className="input" placeholder="Type (eggs, meals, plumbing, taxi, flyer event, tutoring)" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} />
+          <input className="input" placeholder="Price or Free" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
 
-          <input
-            className="input"
-            placeholder="Price or Free"
-            value={form.price}
-            onChange={(e) => setForm({ ...form, price: e.target.value })}
-          />
-
-          <select
-            className="select"
-            value={form.parish}
-            onChange={(e) => setForm({ ...form, parish: e.target.value })}
-          >
-            {parishes.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
+          <select className="select" value={form.parish} onChange={(e) => setForm({ ...form, parish: e.target.value })}>
+            {parishes.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
 
-          <input
-            className="input"
-            placeholder="District (required)"
-            value={form.district}
-            onChange={(e) => setForm({ ...form, district: e.target.value })}
-          />
+          <input className="input" placeholder="District (required)" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} />
+          <input className="input" placeholder="Community" value={form.community} onChange={(e) => setForm({ ...form, community: e.target.value })} />
+          <input className="input" placeholder="Phone / WhatsApp" value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
+          <textarea className="textarea" placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
 
-          <input
-            className="input"
-            placeholder="Community"
-            value={form.community}
-            onChange={(e) => setForm({ ...form, community: e.target.value })}
-          />
-
-          <input
-            className="input"
-            placeholder="Phone / WhatsApp"
-            value={form.contact_phone}
-            onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
-          />
-
-          <textarea
-            className="textarea"
-            placeholder="Description"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
+          <div className="card pad" style={{ background: "#f8fafc" }}>
+            <div style={{ fontWeight: 700 }}>Delivery / Pickup Options</div>
+            <div className="grid" style={{ marginTop: 10 }}>
+              {deliveryOptions.map((option) => (
+                <label key={option} className="small">
+                  <input
+                    type="checkbox"
+                    checked={form.delivery_options.includes(option)}
+                    onChange={() => toggleDelivery(option)}
+                    style={{ marginRight: 8 }}
+                  />
+                  {option}
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div className="grid">
             <label style={{ fontWeight: 600 }}>Add picture or flyer</label>
 
-            <div
-              style={{
-                display: "grid",
-                gap: 12,
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              }}
-            >
-              <label
-                className="btn"
-                style={{
-                  textAlign: "center",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <label className="btn" style={{ textAlign: "center", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                 Upload Photo / Flyer
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file);
-                  }}
-                />
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(file);
+                }} />
               </label>
 
-              <label
-                className="btn secondary"
-                style={{
-                  textAlign: "center",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <label className="btn secondary" style={{ textAlign: "center", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                 Take Picture
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  style={{ display: "none" }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file);
-                  }}
-                />
+                <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(file);
+                }} />
               </label>
             </div>
 
             {uploading && <div className="small muted">Uploading image...</div>}
-
-            {imageUrl && (
-              <div>
-                <img
-                  src={imageUrl}
-                  alt="Listing preview"
-                  style={{
-                    width: "100%",
-                    maxHeight: 260,
-                    objectFit: "cover",
-                    borderRadius: 12,
-                  }}
-                />
-              </div>
-            )}
+            {imageUrl && <img src={imageUrl} alt="Listing preview" style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 12 }} />}
           </div>
 
           <button className="btn" disabled={uploading}>
