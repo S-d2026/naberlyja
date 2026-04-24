@@ -44,39 +44,41 @@ function normalizeCategory(value: string | null): CategoryId | "" {
   return valid.includes(value as CategoryId) ? (value as CategoryId) : "";
 }
 
-function getCategoryPlaceholder(item: LiveListing) {
+function getSmartPlaceholder(item: LiveListing) {
   const category = normalizeCategory(item.category);
-  const title = (item.title || "").toLowerCase();
-  const type = (item.type || "").toLowerCase();
-  const text = `${title} ${type} ${item.description || ""}`.toLowerCase();
+  const text = `${item.title || ""} ${item.type || ""} ${item.description || ""}`.toLowerCase();
 
-  if (category === "need-food" || text.includes("food") || text.includes("meal") || text.includes("egg")) {
-    return { emoji: "🍲", label: "Food / Meals" };
-  }
+  if (text.includes("egg")) return { emoji: "🥚", label: "Eggs" };
+  if (text.includes("bread") || text.includes("bun") || text.includes("bakery")) return { emoji: "🥖", label: "Bread / Bakery" };
+  if (text.includes("fruit") || text.includes("banana") || text.includes("mango") || text.includes("pineapple") || text.includes("orange")) return { emoji: "🍍", label: "Fruit / Produce" };
+  if (text.includes("vegetable") || text.includes("callaloo") || text.includes("tomato") || text.includes("produce")) return { emoji: "🥬", label: "Fresh Produce" };
+  if (text.includes("chicken")) return { emoji: "🍗", label: "Chicken / Meal" };
+  if (text.includes("fish")) return { emoji: "🐟", label: "Fish / Seafood" };
+  if (text.includes("soup")) return { emoji: "🍲", label: "Soup / Meal" };
+  if (text.includes("meal") || text.includes("lunch") || text.includes("dinner") || text.includes("food")) return { emoji: "🍽️", label: "Food / Meals" };
 
-  if (category === "events" || text.includes("event") || text.includes("party") || text.includes("fair")) {
-    return { emoji: "🎟️", label: "Event / Flyer" };
-  }
+  if (text.includes("taxi") || text.includes("ride")) return { emoji: "🚕", label: "Taxi / Ride" };
+  if (text.includes("delivery") || text.includes("courier")) return { emoji: "📦", label: "Delivery" };
 
-  if (category === "need-work" || text.includes("job") || text.includes("work")) {
-    return { emoji: "💼", label: "Work / Jobs" };
-  }
+  if (text.includes("hair") || text.includes("braid") || text.includes("barber")) return { emoji: "💇🏾‍♀️", label: "Hair / Barber" };
+  if (text.includes("nail")) return { emoji: "💅", label: "Nails / Beauty" };
+  if (text.includes("plumb")) return { emoji: "🔧", label: "Plumbing" };
+  if (text.includes("electric")) return { emoji: "💡", label: "Electrical" };
+  if (text.includes("clean")) return { emoji: "🧹", label: "Cleaning" };
+  if (text.includes("tutor") || text.includes("homework")) return { emoji: "📚", label: "Tutoring" };
 
-  if (category === "hire-worker" || category === "services" || text.includes("service") || text.includes("plumb") || text.includes("hair")) {
-    return { emoji: "🛠️", label: "Local Service" };
-  }
+  if (text.includes("phone") || text.includes("iphone")) return { emoji: "📱", label: "Phone / Electronics" };
+  if (text.includes("clothes") || text.includes("dress") || text.includes("shoes")) return { emoji: "👕", label: "Clothing" };
+  if (text.includes("furniture") || text.includes("chair") || text.includes("table")) return { emoji: "🪑", label: "Furniture" };
 
-  if (category === "need-ride" || text.includes("ride") || text.includes("taxi") || text.includes("delivery")) {
-    return { emoji: "🚗", label: "Ride / Delivery" };
-  }
+  if (text.includes("event") || text.includes("party") || text.includes("fair") || category === "events") return { emoji: "🎟️", label: "Event / Flyer" };
+  if (text.includes("job") || text.includes("work") || category === "need-work") return { emoji: "💼", label: "Work / Jobs" };
+  if (text.includes("urgent") || text.includes("help") || category === "emergency-help") return { emoji: "🤝", label: "Community Help" };
 
-  if (category === "emergency-help" || text.includes("help") || text.includes("urgent")) {
-    return { emoji: "🤝", label: "Community Help" };
-  }
-
-  if (category === "buy-sell" || category === "sell-offer") {
-    return { emoji: "🛍️", label: "Buy / Sell" };
-  }
+  if (category === "need-food") return { emoji: "🍲", label: "Food / Meals" };
+  if (category === "services" || category === "hire-worker") return { emoji: "🛠️", label: "Local Service" };
+  if (category === "need-ride") return { emoji: "🚗", label: "Ride / Delivery" };
+  if (category === "buy-sell" || category === "sell-offer") return { emoji: "🛍️", label: "Buy / Sell" };
 
   return { emoji: "📍", label: "Nearby Listing" };
 }
@@ -143,7 +145,7 @@ function ListingImage({ item }: { item: LiveListing }) {
     );
   }
 
-  const placeholder = getCategoryPlaceholder(item);
+  const placeholder = getSmartPlaceholder(item);
 
   return (
     <div
@@ -160,7 +162,7 @@ function ListingImage({ item }: { item: LiveListing }) {
       }}
     >
       <div>
-        <div style={{ fontSize: 48 }}>{placeholder.emoji}</div>
+        <div style={{ fontSize: 52 }}>{placeholder.emoji}</div>
         <div className="small muted" style={{ marginTop: 8 }}>
           {placeholder.label}
         </div>
