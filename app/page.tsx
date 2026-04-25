@@ -104,9 +104,11 @@ function ListingCard({
       <div className="flex between gap-12">
         <div>
           {item.featured ? <span className="badge featured">Featured</span> : null}
+
           <div style={{ fontSize: 20, fontWeight: 700, marginTop: 8 }}>
             {item.title}
           </div>
+
           <div className="small muted">{item.type}</div>
         </div>
 
@@ -363,6 +365,52 @@ export default function HomePage() {
             </select>
           </div>
 
+          <div className="card pad" style={{ background: "#ecfdf5", marginTop: 14 }}>
+            <div style={{ fontSize: 22, fontWeight: 800 }}>Need help nearby?</div>
+
+            <div className="small muted" style={{ marginTop: 6 }}>
+              Ask for help or offer help in your Naberhood.
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 10,
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                marginTop: 12,
+              }}
+            >
+              <button
+                className="btn"
+                onClick={() => {
+                  setSelectedCategory("emergency-help");
+                  setTimeout(() => {
+                    document.getElementById("results-section")?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  }, 100);
+                }}
+              >
+                See Help Requests
+              </button>
+
+              <Link
+                href="/post?category=emergency-help&type=I Need Help"
+                className="btn secondary"
+              >
+                I Need Help
+              </Link>
+
+              <Link
+                href="/post?category=emergency-help&type=I Can Help"
+                className="btn secondary"
+              >
+                I Can Help
+              </Link>
+            </div>
+          </div>
+
           <div className="actions-grid" style={{ marginTop: 14 }}>
             {categories.map((c) => (
               <button
@@ -379,10 +427,7 @@ export default function HomePage() {
 
         <div className="card pad" style={{ gridColumn: "1 / -1" }}>
           <div className="flex between center">
-            <div style={{ fontSize: 22, fontWeight: 700 }}>
-              Featured Nearby
-            </div>
-
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Featured Nearby</div>
             <div className="small muted">Swipe sideways</div>
           </div>
 

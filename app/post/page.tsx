@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { parishes, categories, CategoryId } from "@/data/listings";
 import { supabase } from "@/lib/supabase";
@@ -42,6 +42,21 @@ export default function PostPage() {
   const [msg, setMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const category = params.get("category") as CategoryId | null;
+    const type = params.get("type");
+
+    if (category || type) {
+      setForm((prev) => ({
+        ...prev,
+        category: category || prev.category,
+        type: type || prev.type,
+        price: category === "emergency-help" ? "Free / Community Support" : prev.price,
+      }));
+    }
+  }, []);
 
   function toggleDelivery(option: string) {
     setForm((prev) => ({
@@ -126,7 +141,7 @@ export default function PostPage() {
       return;
     }
 
-    setMsg("Listing submitted for approval. Once approved, you can share it with customers from My Listings.");
+    setMsg("Listing submitted for approval. Once approved, it can be found in the matching category.");
 
     setForm({
       title: "",
@@ -151,6 +166,17 @@ export default function PostPage() {
     "Knutsford Express",
   ];
 
+  const helpExamples = [
+    "Need childcare now",
+    "Need elder check-in",
+    "Need help moving something",
+    "Need medicine pickup",
+    "Need tools to borrow",
+    "Need side work today",
+    "Handyman available",
+    "I can help nearby",
+  ];
+
   return (
     <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 12 }}>
       <div className="card pad">
@@ -159,7 +185,7 @@ export default function PostPage() {
             <div style={{ fontWeight: 800, fontSize: 28 }}>Naberly</div>
             <div className="small muted">Jamaica Launch • Naberly JA</div>
             <div className="section-title" style={{ marginTop: 8 }}>
-              Sell / Offer Anything
+              Post to Your Naberhood
             </div>
           </div>
 
@@ -173,29 +199,111 @@ export default function PostPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="grid" style={{ marginTop: 16 }}>
-          <input className="input" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+        {form.category === "emergency-help" && (
+          <div className="card pad" style={{ background: "#ecfdf5", marginTop: 16 }}>
+            <div style={{ fontWeight: 800 }}>Need Help / Offer Help</div>
+            <div className="small muted" style={{ marginTop: 6 }}>
+              Use this for childcare, elder check-ins, side work, errands, tools, medicine pickup, moving help, trusted local workers, and community support.
+            </div>
 
-          <select className="select" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as CategoryId })}>
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                marginTop: 12,
+              }}
+            >
+              {helpExamples.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => setForm({ ...form, type: example })}
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="grid" style={{ marginTop: 16 }}>
+          <input
+            className="input"
+            placeholder="Title"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+          />
+
+          <select
+            className="select"
+            value={form.category}
+            onChange={(e) => setForm({ ...form, category: e.target.value as CategoryId })}
+          >
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.label}</option>
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
             ))}
           </select>
 
-          <input className="input" placeholder="Type (eggs, meals, plumbing, taxi, flyer event, tutoring)" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} />
-          <input className="input" placeholder="Price or Free" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+          <input
+            className="input"
+            placeholder="Type (Need childcare, handyman, eggs, taxi, tutoring, event)"
+            value={form.type}
+            onChange={(e) => setForm({ ...form, type: e.target.value })}
+          />
 
-          <select className="select" value={form.parish} onChange={(e) => setForm({ ...form, parish: e.target.value })}>
-            {parishes.map((p) => <option key={p} value={p}>{p}</option>)}
+          <input
+            className="input"
+            placeholder="Price, Free, Pay discussed, or Community Support"
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
+          />
+
+          <select
+            className="select"
+            value={form.parish}
+            onChange={(e) => setForm({ ...form, parish: e.target.value })}
+          >
+            {parishes.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
           </select>
 
-          <input className="input" placeholder="District (required)" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} />
-          <input className="input" placeholder="Community" value={form.community} onChange={(e) => setForm({ ...form, community: e.target.value })} />
-          <input className="input" placeholder="Phone / WhatsApp" value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
-          <textarea className="textarea" placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <input
+            className="input"
+            placeholder="District (required)"
+            value={form.district}
+            onChange={(e) => setForm({ ...form, district: e.target.value })}
+          />
+
+          <input
+            className="input"
+            placeholder="Community"
+            value={form.community}
+            onChange={(e) => setForm({ ...form, community: e.target.value })}
+          />
+
+          <input
+            className="input"
+            placeholder="Phone / WhatsApp"
+            value={form.contact_phone}
+            onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
+          />
+
+          <textarea
+            className="textarea"
+            placeholder="Description"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
 
           <div className="card pad" style={{ background: "#f8fafc" }}>
-            <div style={{ fontWeight: 700 }}>Delivery / Pickup Options</div>
+            <div style={{ fontWeight: 700 }}>Delivery / Pickup / Help Options</div>
             <div className="grid" style={{ marginTop: 10 }}>
               {deliveryOptions.map((option) => (
                 <label key={option} className="small">
@@ -214,30 +322,75 @@ export default function PostPage() {
           <div className="grid">
             <label style={{ fontWeight: 600 }}>Add picture or flyer</label>
 
-            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-              <label className="btn" style={{ textAlign: "center", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              }}
+            >
+              <label
+                className="btn"
+                style={{
+                  textAlign: "center",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 Upload Photo / Flyer
-                <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(file);
-                }} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file);
+                  }}
+                />
               </label>
 
-              <label className="btn secondary" style={{ textAlign: "center", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              <label
+                className="btn secondary"
+                style={{
+                  textAlign: "center",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 Take Picture
-                <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(file);
-                }} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file);
+                  }}
+                />
               </label>
             </div>
 
             {uploading && <div className="small muted">Uploading image...</div>}
-            {imageUrl && <img src={imageUrl} alt="Listing preview" style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 12 }} />}
+
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt="Listing preview"
+                style={{
+                  width: "100%",
+                  maxHeight: 260,
+                  objectFit: "cover",
+                  borderRadius: 12,
+                }}
+              />
+            )}
           </div>
 
           <button className="btn" disabled={uploading}>
-            {uploading ? "Uploading..." : "Publish Listing"}
+            {uploading ? "Uploading..." : "Submit for Approval"}
           </button>
 
           {msg && <div className="small muted">{msg}</div>}
