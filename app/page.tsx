@@ -265,6 +265,19 @@ export default function HomePage() {
     return result;
   }, [rows, selectedCategory, parish, search, quick]);
 
+  useEffect(() => {
+    if (!search.trim()) return;
+
+    const timer = setTimeout(() => {
+      document.getElementById("results-section")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const featured = rows.filter((x) => x.featured).slice(0, 10);
 
   function handleCategoryTap(id: CategoryId) {
@@ -276,8 +289,10 @@ export default function HomePage() {
     setSelectedCategory(id);
 
     setTimeout(() => {
-      const el = document.getElementById("results-section");
-      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("results-section")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }, 120);
   }
 
@@ -307,10 +322,6 @@ export default function HomePage() {
 
               <div style={{ fontSize: 24, fontWeight: 700, marginTop: 10 }}>
                 How can Naberly help you today?
-              </div>
-
-              <div className="small muted" style={{ marginTop: 8 }}>
-                Your Naberhood at your fingertips.
               </div>
 
               <div className="small muted" style={{ marginTop: 8 }}>
@@ -365,52 +376,6 @@ export default function HomePage() {
             </select>
           </div>
 
-          <div className="card pad" style={{ background: "#ecfdf5", marginTop: 14 }}>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>Need help nearby?</div>
-
-            <div className="small muted" style={{ marginTop: 6 }}>
-              Ask for help or offer help in your Naberhood.
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gap: 10,
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                marginTop: 12,
-              }}
-            >
-              <button
-                className="btn"
-                onClick={() => {
-                  setSelectedCategory("emergency-help");
-                  setTimeout(() => {
-                    document.getElementById("results-section")?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    });
-                  }, 100);
-                }}
-              >
-                See Help Requests
-              </button>
-
-              <Link
-                href="/post?category=emergency-help&type=I Need Help"
-                className="btn secondary"
-              >
-                I Need Help
-              </Link>
-
-              <Link
-                href="/post?category=emergency-help&type=I Can Help"
-                className="btn secondary"
-              >
-                I Can Help
-              </Link>
-            </div>
-          </div>
-
           <div className="actions-grid" style={{ marginTop: 14 }}>
             {categories.map((c) => (
               <button
@@ -451,22 +416,9 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="quick-filters" style={{ marginTop: 4, gridColumn: "1 / -1" }}>
-          {quickFilters.map((q) => (
-            <button
-              key={q}
-              className={quick === q ? "btn" : "btn secondary"}
-              style={{ width: "auto" }}
-              onClick={() => setQuick(q)}
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-
-        {msg ? (
-          <div className="card pad muted" style={{ marginTop: 4, gridColumn: "1 / -1" }}>
-            {msg}
+        {filtered.length === 0 ? (
+          <div className="card pad muted" style={{ gridColumn: "1 / -1" }}>
+            No results found.
           </div>
         ) : null}
 
@@ -477,7 +429,6 @@ export default function HomePage() {
             gap: 16,
             gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
             gridColumn: "1 / -1",
-            marginTop: 4,
           }}
         >
           {filtered.map((item) => (
@@ -506,24 +457,24 @@ export default function HomePage() {
           zIndex: 50,
         }}
       >
-        <Link href="/" className="btn secondary" style={{ width: "100%" }}>
+        <Link href="/" className="btn secondary">
           Home
         </Link>
 
-        <Link href="/post" className="btn" style={{ width: "100%" }}>
+        <Link href="/post" className="btn">
           Post
         </Link>
 
-        <Link href="/favorites" className="btn secondary" style={{ width: "100%" }}>
+        <Link href="/favorites" className="btn secondary">
           Saved
         </Link>
 
         {!signedIn ? (
-          <Link href="/login" className="btn secondary" style={{ width: "100%" }}>
+          <Link href="/login" className="btn secondary">
             Login
           </Link>
         ) : (
-          <button className="btn secondary" style={{ width: "100%" }} onClick={handleSignOut}>
+          <button className="btn secondary" onClick={handleSignOut}>
             Sign Out
           </button>
         )}
