@@ -1,107 +1,57 @@
-"use client";
+'use client'
+// app/login/page.tsx
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
-  const [loginId, setLoginId] = useState("");
-  const [password, setPassword] = useState("");
-  const [msg, setMsg] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function init() {
-      if (!supabase) {
-        if (mounted) setReady(true);
-        return;
-      }
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!mounted) return;
-
-      if (session) {
-        window.location.replace("/");
-        return;
-      }
-
-      setReady(true);
-    }
-
-    init();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setMsg("");
-    setLoading(true);
-
-    if (!supabase) {
-      setMsg("Supabase is not configured yet.");
-      setLoading(false);
-      return;
-    }
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: loginId,
-      password,
-    });
-
-    if (error) {
-      setMsg(error.message);
-      setLoading(false);
-      return;
-    }
-
-    window.location.replace("/");
-  }
-
-  if (!ready) {
-    return (
-      <div className="card pad" style={{ maxWidth: 520, margin: "40px auto" }}>
-        Checking login...
-      </div>
-    );
+  async function handleLogin() {
+    if (!email || !password) { setError('Please fill in all fields.'); return }
+    setLoading(true)
+    setError('')
+    const { error: err } = await supabase.auth.signInWithPassword({ email, password })
+    setLoading(false)
+    if (err) setError(err.message)
+    else router.push('/')
   }
 
   return (
-    <div className="card pad" style={{ maxWidth: 520, margin: "40px auto" }}>
-      <div className="flex between center gap-12">
-        <div className="section-title">Login</div>
-        <Link href="/" className="btn secondary" style={{ width: "auto" }}>
-          Home
-        </Link>
+    <div className="app-shell">
+      <div style={{ background: '#1B3A1D', padding: '20px 17px 15px', flexShrink: 0 }}>
+        <p className="eyebrow" style={{ color: 'rgba(255,255,255,0.42)', marginBottom: 4 }}>Welcome back</p>
+        <p style={{ color: '#fff', fontSize: 19 }}>Sign in to Naberly</p>
       </div>
-
-      <form onSubmit={handleSubmit} className="grid" style={{ marginTop: 16 }}>
-        <input
-          className="input"
-          placeholder="Email"
-          value={loginId}
-          onChange={(e) => setLoginId(e.target.value)}
-        />
-        <input
-          className="input"
-          placeholder="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button className="btn" disabled={loading}>
-          {loading ? "Signing in..." : "Sign in"}
+      <div className="scroll-area" style={{ padding: '20px 18px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 15, marginBottom: 18 }}>
+          <div>
+            <label className="field-label">Email</label>
+            <input className="form-field" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+              <label className="field-label">Password</label>
+              <span style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: '#1B3A1D', cursor: 'pointer' }}>Forgot?</span>
+            </div>
+            <input className="form-field" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} />
+          </div>
+        </div>
+        {error && <div style={{ background: '#F0CABA', borderRadius: 8, padding: '9px 11px', marginBottom: 10, borderLeft: '3px solid #A84B2A' }}><p style={{ fontSize: 12, fontFamily: '-apple-system, sans-serif', color: '#6B1E10' }}>{error}</p></div>}
+        <button className="btn-primary" onClick={handleLogin} disabled={loading} style={{ marginBottom: 9, opacity: loading ? 0.7 : 1 }}>
+          {loading ? 'Signing in...' : 'Sign in'}
         </button>
-        {msg && <div className="small muted">{msg}</div>}
-      </form>
+        <Link href="/signup" className="btn-ghost">Create account — it's free</Link>
+        <p style={{ fontSize: 11, fontFamily: '-apple-system, sans-serif', color: '#5A5A50', textAlign: 'center', marginTop: 14 }}>
+          <Link href="/" style={{ color: '#1B3A1D' }}>← Back to Naberly</Link>
+        </p>
+      </div>
     </div>
-  );
+  )
 }

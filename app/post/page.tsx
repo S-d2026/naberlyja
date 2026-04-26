@@ -1,401 +1,246 @@
-"use client";
+'use client'
+// app/post/page.tsx — Post a listing (named or anonymous)
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { parishes, categories, CategoryId } from "@/data/listings";
-import { supabase } from "@/lib/supabase";
+import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { supabase, createListing } from '@/lib/supabase'
 
-function isFreePriority(form: {
-  category: CategoryId;
-  price: string;
-  type: string;
-  description: string;
-}) {
-  const text = `${form.type} ${form.description}`.toLowerCase();
-  const isFree = form.price.toLowerCase().includes("free");
-  const rescueKeywords = ["rescue", "donation", "donate", "meal", "meals", "food", "groceries"];
-  const hasRescueWord = rescueKeywords.some((word) => text.includes(word));
+const PARISHES = ['Kingston','St. Andrew','St. Thomas','Portland','St. Mary','St. Ann','Trelawny','St. James','Hanover','Westmoreland','St. Elizabeth','Manchester','Clarendon','St. Catherine']
 
-  return (
-    isFree &&
-    (form.category === "need-food" ||
-      form.category === "sell-offer" ||
-      form.category === "emergency-help" ||
-      hasRescueWord)
-  );
-}
+const CATEGORIES = [
+  { key: 'food', label: 'Food', emoji: '🍲', bg: '#D0E8BC' },
+  { key: 'urgent', label: 'Urgent', emoji: '⚠️', bg: '#F0CABA' },
+  { key: 'work', label: 'Work', emoji: '💼', bg: '#BCD0E8' },
+  { key: 'ride', label: 'Ride', emoji: '🚗', bg: '#E0D8F0' },
+  { key: 'service', label: 'Service', emoji: '🛠️', bg: '#F0E8BC' },
+  { key: 'buy-sell', label: 'Buy/Sell', emoji: '🛍️', bg: '#EDE7D9' },
+]
 
 export default function PostPage() {
-  const [form, setForm] = useState({
-    title: "",
-    price: "",
-    parish: "Kingston",
-    district: "",
-    community: "",
-    type: "",
-    contact_phone: "",
-    description: "",
-    category: "sell-offer" as CategoryId,
-    delivery_options: [] as string[],
-  });
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialAnon = searchParams.get('anonymous') === 'true'
 
-  const [msg, setMsg] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [imageUrl, setImageUrl] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(initialAnon)
+  const [listingType, setListingType] = useState<'need' | 'offer'>('need')
+  const [category, setCategory] = useState('food')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [price, setPrice] = useState('')
+  const [parish, setParish] = useState('Kingston')
+  const [district, setDistrict] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const category = params.get("category") as CategoryId | null;
-    const type = params.get("type");
+  async function handleSubmit() {
+    if (!title.trim()) { setError('Please add a title.'); return }
+    if (!parish) { setError('Please choose your parish.'); return }
+    if (!isAnonymous && !whatsapp.trim()) { setError('Please add your WhatsApp number so neighbors can reach you.'); return }
 
-    if (category || type) {
-      setForm((prev) => ({
-        ...prev,
-        category: category || prev.category,
-        type: type || prev.type,
-        price: category === "emergency-help" ? "Free / Community Support" : prev.price,
-      }));
+    setSubmitting(true)
+    setError('')
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error: err } = await createListing({
+      user_id: user?.id || null,
+      title: title.trim(),
+      description: description.trim() || null,
+      category: category as any,
+      listing_type: listingType,
+      price_jmd: price ? parseInt(price) : null,
+      is_free: !price,
+      parish,
+      district: district.trim() || null,
+      whatsapp: isAnonymous ? null : whatsapp.trim(),
+      is_anonymous: isAnonymous,
+      status: 'pending',
+    })
+
+    setSubmitting(false)
+
+    if (err) {
+      setError('Something went wrong. Please try again.')
+    } else {
+      setSuccess(true)
+      // WhatsApp notification to Naberly admin
+      const message = encodeURIComponent(
+        `New Naberly post submitted!\n\nTitle: ${title}\nCategory: ${category}\nParish: ${parish}${district ? `\nDistrict: ${district}` : ''}\nAnonymous: ${isAnonymous ? 'Yes' : 'No'}\n\nPlease review at naberlyja.com/admin`
+      )
+      window.open(`https://wa.me/19174432797?text=${message}`, '_blank')
+      setTimeout(() => router.push('/'), 2000)
     }
-  }, []);
-
-  function toggleDelivery(option: string) {
-    setForm((prev) => ({
-      ...prev,
-      delivery_options: prev.delivery_options.includes(option)
-        ? prev.delivery_options.filter((x) => x !== option)
-        : [...prev.delivery_options, option],
-    }));
   }
 
-  async function handleImageUpload(file: File) {
-    if (!supabase) {
-      setMsg("Supabase is not configured.");
-      return;
-    }
-
-    setUploading(true);
-    setMsg("");
-
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-    const filePath = `listing-images/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("listing-images")
-      .upload(filePath, file);
-
-    if (uploadError) {
-      setMsg(uploadError.message);
-      setUploading(false);
-      return;
-    }
-
-    const { data } = supabase.storage.from("listing-images").getPublicUrl(filePath);
-    setImageUrl(data.publicUrl);
-    setUploading(false);
-    setMsg("Image uploaded.");
+  if (success) {
+    return (
+      <div className="app-shell" style={{ justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: 48, marginBottom: 16 }}>✅</p>
+          <p style={{ fontSize: 18, marginBottom: 8 }}>Posted successfully</p>
+          <p style={{ fontSize: 13, fontFamily: '-apple-system, sans-serif', color: '#5A5A50', lineHeight: 1.6 }}>
+            Your post is under review. We'll WhatsApp you when it goes live — usually within a few hours.
+          </p>
+          <p style={{ fontSize: 12, fontFamily: '-apple-system, sans-serif', color: '#5A5A50', marginTop: 16 }}>Redirecting to home...</p>
+        </div>
+      </div>
+    )
   }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!form.district.trim()) {
-      setMsg("District is required.");
-      return;
-    }
-
-    if (!supabase) {
-      setMsg("Supabase is not configured yet.");
-      return;
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    const autoFeatured = isFreePriority(form);
-
-    const { error } = await supabase.from("listings").insert({
-      title: form.title,
-      price: form.price,
-      parish: form.parish,
-      district: form.district,
-      community: form.community,
-      type: form.type,
-      contact_phone: form.contact_phone,
-      description: form.description,
-      category: form.category,
-      image_url: imageUrl || null,
-      status: "pending",
-      availability_status: "available",
-      delivery_options: form.delivery_options,
-      user_id: session?.user?.id || null,
-      featured: autoFeatured,
-      featured_expires_at: autoFeatured
-        ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        : null,
-    });
-
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
-
-    setMsg("Listing submitted for approval. Once approved, it can be found in the matching category.");
-
-    setForm({
-      title: "",
-      price: "",
-      parish: "Kingston",
-      district: "",
-      community: "",
-      type: "",
-      contact_phone: "",
-      description: "",
-      category: "sell-offer",
-      delivery_options: [],
-    });
-    setImageUrl("");
-  }
-
-  const deliveryOptions = [
-    "Pickup",
-    "Local delivery",
-    "Seller delivery",
-    "Buyer arranges",
-    "Knutsford Express",
-  ];
-
-  const helpExamples = [
-    "Need childcare now",
-    "Need elder check-in",
-    "Need help moving something",
-    "Need medicine pickup",
-    "Need tools to borrow",
-    "Need side work today",
-    "Handyman available",
-    "I can help nearby",
-  ];
 
   return (
-    <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 12 }}>
-      <div className="card pad">
-        <div className="flex between center gap-12 wrap">
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 28 }}>Naberly</div>
-            <div className="small muted">Jamaica Launch • Naberly JA</div>
-            <div className="section-title" style={{ marginTop: 8 }}>
-              Post to Your Naberhood
-            </div>
-          </div>
+    <div className="app-shell">
+      <div className={isAnonymous ? 'header-urgent' : 'header-sm'}>
+        <Link href="/" className="back-btn">←</Link>
+        <div>
+          <p className="eyebrow" style={{ color: 'rgba(255,255,255,0.42)' }}>
+            {isAnonymous ? 'Identity protected' : 'Share with your Naberhood'}
+          </p>
+          <p style={{ color: '#fff', fontSize: 14 }}>
+            {isAnonymous ? 'Anonymous post' : 'Post something'}
+          </p>
+        </div>
+      </div>
 
-          <div className="flex gap-8 wrap">
-            <Link href="/" className="btn secondary" style={{ width: "auto" }}>
-              Home
-            </Link>
-            <Link href="/my-listings" className="btn secondary" style={{ width: "auto" }}>
-              My Listings
-            </Link>
+      <div className="scroll-area" style={{ padding: 13 }}>
+        {/* 119 Emergency bar */}
+        <div className="bar-119">
+          <div>
+            <p style={{ fontSize: 12, fontFamily: '-apple-system, sans-serif', fontWeight: 700, color: '#fff' }}>Life-threatening? Call 119 now</p>
+            <p style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: 'rgba(255,255,255,0.6)', marginTop: 1 }}>Police · Fire · Ambulance — Jamaica</p>
           </div>
+          <a href="tel:119" className="btn-119">Call 119</a>
         </div>
 
-        {form.category === "emergency-help" && (
-          <div className="card pad" style={{ background: "#ecfdf5", marginTop: 16 }}>
-            <div style={{ fontWeight: 800 }}>Need Help / Offer Help</div>
-            <div className="small muted" style={{ marginTop: 6 }}>
-              Use this for childcare, elder check-ins, side work, errands, tools, medicine pickup, moving help, trusted local workers, and community support.
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gap: 8,
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                marginTop: 12,
-              }}
-            >
-              {helpExamples.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => setForm({ ...form, type: example })}
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
+        {/* Anonymous protection notice */}
+        {isAnonymous && (
+          <div className="anon-box" style={{ marginBottom: 13 }}>
+            <p style={{ fontSize: 11, fontFamily: '-apple-system, sans-serif', fontWeight: 700, color: '#4A1A80', marginBottom: 4 }}>🔒 Your identity is fully protected</p>
+            <p style={{ fontSize: 11, fontFamily: '-apple-system, sans-serif', color: '#6B2A9A', lineHeight: 1.65 }}>
+              Your name and number never appear publicly. Neighbors who want to help message you through Naberly's relay number. We forward it to you privately.
+            </p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="grid" style={{ marginTop: 16 }}>
-          <input
-            className="input"
-            placeholder="Title"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-          />
-
-          <select
-            className="select"
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value as CategoryId })}
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-
-          <input
-            className="input"
-            placeholder="Type (Need childcare, handyman, eggs, taxi, tutoring, event)"
-            value={form.type}
-            onChange={(e) => setForm({ ...form, type: e.target.value })}
-          />
-
-          <input
-            className="input"
-            placeholder="Price, Free, Pay discussed, or Community Support"
-            value={form.price}
-            onChange={(e) => setForm({ ...form, price: e.target.value })}
-          />
-
-          <select
-            className="select"
-            value={form.parish}
-            onChange={(e) => setForm({ ...form, parish: e.target.value })}
-          >
-            {parishes.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-
-          <input
-            className="input"
-            placeholder="District (required)"
-            value={form.district}
-            onChange={(e) => setForm({ ...form, district: e.target.value })}
-          />
-
-          <input
-            className="input"
-            placeholder="Community"
-            value={form.community}
-            onChange={(e) => setForm({ ...form, community: e.target.value })}
-          />
-
-          <input
-            className="input"
-            placeholder="Phone / WhatsApp"
-            value={form.contact_phone}
-            onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
-          />
-
-          <textarea
-            className="textarea"
-            placeholder="Description"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
-
-          <div className="card pad" style={{ background: "#f8fafc" }}>
-            <div style={{ fontWeight: 700 }}>Delivery / Pickup / Help Options</div>
-            <div className="grid" style={{ marginTop: 10 }}>
-              {deliveryOptions.map((option) => (
-                <label key={option} className="small">
-                  <input
-                    type="checkbox"
-                    checked={form.delivery_options.includes(option)}
-                    onChange={() => toggleDelivery(option)}
-                    style={{ marginRight: 8 }}
-                  />
-                  {option}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid">
-            <label style={{ fontWeight: 600 }}>Add picture or flyer</label>
-
-            <div
-              style={{
-                display: "grid",
-                gap: 12,
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              }}
+        {/* Need / Offer toggle */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, background: '#EDE7D9', borderRadius: 8, padding: 3, marginBottom: 13, border: '1px solid #D8D0BC' }}>
+          {(['need', 'offer'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setListingType(t)}
+              style={{ borderRadius: 6, padding: 9, border: 'none', fontSize: 12, fontFamily: '-apple-system, sans-serif', fontWeight: 700, cursor: 'pointer', background: listingType === t ? '#1B3A1D' : 'transparent', color: listingType === t ? '#fff' : '#5A5A50' }}
             >
-              <label
-                className="btn"
-                style={{
-                  textAlign: "center",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                Upload Photo / Flyer
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file);
-                  }}
-                />
-              </label>
+              {t === 'need' ? 'I Need Help' : 'I Can Offer'}
+            </button>
+          ))}
+        </div>
 
-              <label
-                className="btn secondary"
-                style={{
-                  textAlign: "center",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                Take Picture
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  style={{ display: "none" }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file);
-                  }}
-                />
-              </label>
-            </div>
+        {/* Category */}
+        <p className="eyebrow" style={{ marginBottom: 8 }}>What is it?</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 13 }}>
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat.key}
+              onClick={() => setCategory(cat.key)}
+              style={{ background: category === cat.key ? '#EDE7D9' : cat.bg, border: category === cat.key ? '2px solid #1B3A1D' : '1.5px solid #D8D0BC', borderRadius: 9, padding: 10, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
+            >
+              <span style={{ fontSize: 17, lineHeight: 1 }}>{cat.emoji}</span>
+              <span style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', fontWeight: category === cat.key ? 700 : 600, color: category === cat.key ? '#1B3A1D' : '#5A5A50' }}>{cat.label}</span>
+            </button>
+          ))}
+        </div>
 
-            {uploading && <div className="small muted">Uploading image...</div>}
-
-            {imageUrl && (
-              <img
-                src={imageUrl}
-                alt="Listing preview"
-                style={{
-                  width: "100%",
-                  maxHeight: 260,
-                  objectFit: "cover",
-                  borderRadius: 12,
-                }}
-              />
-            )}
+        {/* Form fields */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 13 }}>
+          <div>
+            <label className="field-label">Title *</label>
+            <input className="form-field" placeholder="e.g. Free ackee plates, 3 children need food..." value={title} onChange={e => setTitle(e.target.value)} />
           </div>
+          <div>
+            <label className="field-label">Details</label>
+            <textarea className="form-field-box" rows={3} placeholder="Time, quantity, pickup or delivery..." value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
+            <div>
+              <label className="field-label">Price (JMD)</label>
+              <input className="form-field" placeholder="Free if blank" value={price} onChange={e => setPrice(e.target.value)} type="number" min="0" />
+            </div>
+            <div>
+              <label className="field-label">Parish</label>
+              <select className="form-field" style={{ appearance: 'none' }} value={parish} onChange={e => setParish(e.target.value)}>
+                {PARISHES.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="field-label">
+              District / Community <span style={{ color: '#C8821A', fontWeight: 700 }}>— how neighbors find you</span>
+            </label>
+            <input className="form-field" placeholder="e.g. Cross Roads, Maxfield Ave, Dunrobin..." value={district} onChange={e => setDistrict(e.target.value)} />
+          </div>
+          {!isAnonymous && (
+            <div>
+              <label className="field-label">Your WhatsApp *</label>
+              <input className="form-field" placeholder="+1 876 XXX XXXX" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} type="tel" />
+            </div>
+          )}
+          {isAnonymous && (
+            <div>
+              <label className="field-label">
+                Your WhatsApp <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: '#5A5A50' }}>(private — relay only, never shown)</span>
+              </label>
+              <input className="form-field" placeholder="+1 876 XXX XXXX" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} type="tel" />
+            </div>
+          )}
+          <div style={{ border: '1.5px dashed #D8D0BC', borderRadius: 10, padding: 13, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer', background: '#EDE7D9' }}>
+            <span style={{ fontSize: 20, lineHeight: 1 }}>📷</span>
+            <p style={{ fontSize: 12, fontFamily: '-apple-system, sans-serif', fontWeight: 700, color: '#18180F' }}>Add a photo or flyer</p>
+            <p style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: '#5A5A50' }}>Photos get 3× more responses</p>
+          </div>
+        </div>
 
-          <button className="btn" disabled={uploading}>
-            {uploading ? "Uploading..." : "Submit for Approval"}
+        {/* Anonymous toggle */}
+        <div style={{ background: '#EDE7D9', borderRadius: 9, padding: 11, marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #D8D0BC' }}>
+          <div>
+            <p style={{ fontSize: 12, fontFamily: '-apple-system, sans-serif', fontWeight: 700, color: '#18180F' }}>
+              {isAnonymous ? 'Posting anonymously' : 'Post anonymously instead'}
+            </p>
+            <p style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: '#5A5A50', marginTop: 1 }}>
+              {isAnonymous ? 'Your name and number are hidden' : 'Hides your name and number'}
+            </p>
+          </div>
+          <button
+            onClick={() => setIsAnonymous(!isAnonymous)}
+            style={{ background: '#1B3A1D', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 10px', fontSize: 10, fontFamily: '-apple-system, sans-serif', cursor: 'pointer' }}
+          >
+            {isAnonymous ? 'Switch to named' : 'Switch'}
           </button>
+        </div>
 
-          {msg && <div className="small muted">{msg}</div>}
-        </form>
+        {/* Error message */}
+        {error && (
+          <div style={{ background: '#F0CABA', borderRadius: 8, padding: '9px 11px', marginBottom: 10, borderLeft: '3px solid #A84B2A' }}>
+            <p style={{ fontSize: 12, fontFamily: '-apple-system, sans-serif', color: '#6B1E10' }}>{error}</p>
+          </div>
+        )}
+
+        {/* Submit */}
+        <button className="btn-primary" onClick={handleSubmit} disabled={submitting} style={{ marginBottom: 6, opacity: submitting ? 0.7 : 1 }}>
+          {submitting ? 'Posting...' : 'Post to my Naberhood'}
+        </button>
+
+        <div className="info-box" style={{ marginBottom: 6 }}>
+          <p style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: '#2D5A2E', lineHeight: 1.6 }}>
+            Posts go live after a quick review — usually a few hours. We'll WhatsApp you when it's live.
+          </p>
+        </div>
+
+        <Link href="/boost" className="btn-gold" style={{ marginBottom: 14, textAlign: 'center' }}>
+          Boost as featured listing ↗
+        </Link>
       </div>
     </div>
-  );
+  )
 }

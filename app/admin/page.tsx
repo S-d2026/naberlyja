@@ -1,250 +1,157 @@
-"use client";
+'use client'
+// app/admin/page.tsx — Admin dashboard
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { supabase, getAllListingsAdmin, adminUpdateListing, type Listing } from '@/lib/supabase'
 
-type Listing = {
-  id: string;
-  title: string | null;
-  parish: string | null;
-  district: string | null;
-  community: string | null;
-  type: string | null;
-  price: string | null;
-  status: string | null;
-  featured: boolean | null;
-  image_url: string | null;
-  description: string | null;
-  created_at: string | null;
-};
+type AdminFilter = 'all' | 'pending' | 'approved' | 'hidden' | 'archived' | 'rejected'
 
 export default function AdminPage() {
-  const [rows, setRows] = useState<Listing[]>([]);
-  const [msg, setMsg] = useState("Loading...");
-  const [filter, setFilter] = useState("all");
+  const router = useRouter()
+  const [listings, setListings] = useState<Listing[]>([])
+  const [filter, setFilter] = useState<AdminFilter>('pending')
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({ total: 0, pending: 0, urgent: 0, members: 0 })
 
   useEffect(() => {
-    loadRows();
-  }, []);
+    // Auth check — must be admin
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { router.push('/login'); return }
+      const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+      if (!profile?.is_admin) { router.push('/'); return }
+      loadAll()
+    })
+  }, [router])
 
-  async function loadRows() {
-    const { data, error } = await supabase
-      .from("listings")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setMsg(error.message);
-      return;
+  async function loadAll() {
+    setLoading(true)
+    const { data } = await getAllListingsAdmin()
+    if (data) {
+      setListings(data as Listing[])
+      setStats({
+        total: data.length,
+        pending: data.filter((l: any) => l.status === 'pending').length,
+        urgent: data.filter((l: any) => l.category === 'urgent' && l.status === 'approved').length,
+        members: 0, // would need separate query
+      })
     }
-
-    setRows(data || []);
-    setMsg("");
+    setLoading(false)
   }
 
-  async function setStatus(id: string, status: string) {
-    const { error } = await supabase
-      .from("listings")
-      .update({ status })
-      .eq("id", id);
-
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
-
-    setMsg(`Listing moved to ${status}.`);
-    loadRows();
+  async function updateStatus(listingId: string, status: string) {
+    await adminUpdateListing(listingId, { status: status as any })
+    setListings(prev => prev.map(l => l.id === listingId ? { ...l, status: status as any } : l))
+    setStats(prev => ({
+      ...prev,
+      pending: prev.pending + (status === 'pending' ? 1 : -1),
+    }))
   }
 
-  async function setFeatured(id: string, featured: boolean) {
-    const { error } = await supabase
-      .from("listings")
-      .update({ featured })
-      .eq("id", id);
-
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
-
-    setMsg(featured ? "Listing featured." : "Listing unfeatured.");
-    loadRows();
+  async function markResolved(listingId: string) {
+    await adminUpdateListing(listingId, { status: 'archived' })
+    setListings(prev => prev.map(l => l.id === listingId ? { ...l, status: 'archived' } : l))
   }
 
-  async function deleteListing(id: string) {
-    const ok = window.confirm("Delete permanently? This cannot be undone.");
-    if (!ok) return;
+  const filtered = listings.filter(l => filter === 'all' || l.status === filter)
 
-    const { error } = await supabase.from("listings").delete().eq("id", id);
-
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
-
-    setMsg("Listing deleted.");
-    loadRows();
+  const STATUS_CHIPS: Record<string, string> = {
+    pending: 'chip-pending', approved: 'chip-approved', hidden: 'chip-pending',
+    archived: 'chip-archived', rejected: 'chip-urgent',
   }
-
-  const visibleRows =
-    filter === "all" ? rows : rows.filter((row) => row.status === filter);
 
   return (
-    <div style={{ width: "100%", maxWidth: 1100, margin: "0 auto", padding: 12 }}>
-      <div className="card pad">
-        <div className="flex between center gap-12 wrap">
-          <div>
-            <h1 style={{ fontSize: 30, fontWeight: 700, margin: 0 }}>
-              Admin Cleanup
-            </h1>
-            <p style={{ marginTop: 8 }}>
-              Archive old posts instead of deleting them.
-            </p>
-          </div>
-
-          <Link href="/" className="btn secondary" style={{ width: "auto" }}>
-            Home
-          </Link>
-        </div>
+    <div className="app-shell">
+      <div className="header-sm">
+        <Link href="/account" className="back-btn">←</Link>
+        <span style={{ color: '#fff', fontSize: 14, flex: 1 }}>Admin dashboard</span>
+        <span style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 9, fontFamily: '-apple-system, sans-serif', padding: '3px 8px', borderRadius: 20 }}>Admin only</span>
       </div>
 
-      {msg && (
-        <div className="card pad muted" style={{ marginTop: 14 }}>
-          {msg}
-        </div>
-      )}
-
-      <div className="card pad" style={{ marginTop: 14 }}>
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>Filter</div>
-
-        <div className="flex gap-8 wrap">
-          {["all", "pending", "approved", "hidden", "archived", "rejected"].map(
-            (item) => (
-              <button
-                key={item}
-                className={filter === item ? "btn" : "btn secondary"}
-                style={{ width: "auto" }}
-                onClick={() => setFilter(item)}
-              >
-                {item}
-              </button>
-            )
-          )}
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gap: 16,
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-          marginTop: 14,
-        }}
-      >
-        {visibleRows.map((row) => (
-          <div key={row.id} className="card pad">
-            <div style={{ fontSize: 20, fontWeight: 800 }}>
-              {row.title || "Untitled"}
-            </div>
-
-            <div className="small muted" style={{ marginTop: 6 }}>
-              {[row.community, row.district, row.parish].filter(Boolean).join(", ")}
-            </div>
-
-            <div className="small" style={{ marginTop: 8 }}>
-              {row.type} {row.price ? `• ${row.price}` : ""}
-            </div>
-
-            <div className="small muted" style={{ marginTop: 8 }}>
-              Status: <strong>{row.status || "none"}</strong>{" "}
-              {row.featured ? "• Featured" : ""}
-            </div>
-
-            {row.image_url ? (
-              <img
-                src={row.image_url}
-                alt={row.title || "listing image"}
-                style={{
-                  width: "100%",
-                  maxHeight: 220,
-                  objectFit: "cover",
-                  borderRadius: 12,
-                  marginTop: 12,
-                }}
-              />
-            ) : null}
-
-            {row.description ? (
-              <p className="small" style={{ marginTop: 10 }}>
-                {row.description}
-              </p>
-            ) : null}
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: 10,
-                marginTop: 14,
-              }}
-            >
-              <button className="btn" onClick={() => setStatus(row.id, "approved")}>
-                Approve / Unhide
-              </button>
-
-              <button
-                className="btn secondary"
-                onClick={() => setStatus(row.id, "archived")}
-              >
-                Archive
-              </button>
-
-              <button
-                className="btn secondary"
-                onClick={() => setStatus(row.id, "hidden")}
-              >
-                Hide
-              </button>
-
-              <button
-                className="btn secondary"
-                onClick={() => setStatus(row.id, "rejected")}
-              >
-                Reject
-              </button>
-
-              <button
-                className="btn secondary"
-                onClick={() => setFeatured(row.id, true)}
-              >
-                Feature
-              </button>
-
-              <button
-                className="btn secondary"
-                onClick={() => setFeatured(row.id, false)}
-              >
-                Unfeature
-              </button>
-            </div>
-
-            <button
-              className="btn secondary"
-              style={{
-                marginTop: 10,
-                background: "#fee2e2",
-                color: "#991b1b",
-                width: "100%",
-              }}
-              onClick={() => deleteListing(row.id)}
-            >
-              Delete Permanently
-            </button>
+      {/* Stats grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: '#D8D0BC', borderBottom: '1px solid #D8D0BC', flexShrink: 0 }}>
+        {[
+          { label: 'Total listings', value: stats.total, color: '#1B3A1D' },
+          { label: 'Awaiting approval', value: stats.pending, color: '#C8821A' },
+          { label: 'Urgent — active', value: stats.urgent, color: '#A84B2A' },
+          { label: 'Members', value: stats.members, color: '#1B3A1D' },
+        ].map(stat => (
+          <div key={stat.label} style={{ background: '#F5F0E6', padding: '11px 13px' }}>
+            <p style={{ fontSize: 18, color: stat.color }}>{stat.value}</p>
+            <p className="eyebrow" style={{ marginTop: 1 }}>{stat.label}</p>
           </div>
         ))}
       </div>
+
+      {/* Status filter */}
+      <div className="district-row">
+        {(['all','pending','approved','hidden','archived','rejected'] as AdminFilter[]).map(f => (
+          <button key={f} className={`district-pill ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: '6px 13px 2px', flexShrink: 0 }}>
+        <p style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: '#5A5A50' }}>
+          Archive = resolved/done. Hidden = temp invisible. All actions reversible.
+        </p>
+      </div>
+
+      <div className="scroll-area">
+        {loading ? (
+          <div className="loading">Loading...</div>
+        ) : filtered.length === 0 ? (
+          <div className="empty-state">
+            <p style={{ fontSize: 13, fontFamily: '-apple-system, sans-serif', color: '#5A5A50' }}>No listings in this status.</p>
+          </div>
+        ) : (
+          filtered.map(listing => (
+            <div key={listing.id} style={{ padding: '11px 13px', borderBottom: '1px solid #D8D0BC', opacity: listing.status === 'archived' || listing.status === 'rejected' ? 0.55 : 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 3 }}>
+                <p style={{ fontSize: 12, fontFamily: '-apple-system, sans-serif', fontWeight: 700, color: '#18180F', flex: 1, marginRight: 7 }}>
+                  {listing.title}
+                </p>
+                <span className={`chip ${STATUS_CHIPS[listing.status] || 'chip-neutral'}`}>
+                  {listing.status}
+                </span>
+              </div>
+              <p style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: '#5A5A50', marginBottom: 7 }}>
+                {listing.is_anonymous ? 'Anonymous' : (listing.profiles as any)?.full_name || 'Unknown'} · {listing.parish}{listing.district ? ` · ${listing.district}` : ''} · {listing.category}
+                {' · '}{new Date(listing.created_at).toLocaleDateString('en-JM')}
+              </p>
+
+              {/* Action buttons based on status */}
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                {listing.status === 'pending' && (
+                  <>
+                    <button onClick={() => updateStatus(listing.id, 'approved')} style={{ background: '#1B3A1D', color: '#fff', border: 'none', borderRadius: 5, padding: '6px 10px', fontSize: 10, fontFamily: '-apple-system, sans-serif', fontWeight: 700, cursor: 'pointer' }}>Approve</button>
+                    {listing.category === 'urgent' && (
+                      <button onClick={() => markResolved(listing.id)} style={{ background: '#D0E8BC', color: '#1B3A1D', border: '1px solid #2D5A2E', borderRadius: 5, padding: '6px 10px', fontSize: 10, fontFamily: '-apple-system, sans-serif', fontWeight: 700, cursor: 'pointer' }}>Mark resolved ✓</button>
+                    )}
+                    <button onClick={() => updateStatus(listing.id, 'archived')} style={{ background: '#EDE7D9', color: '#5A5A50', border: '1px solid #D8D0BC', borderRadius: 5, padding: '6px 10px', fontSize: 10, fontFamily: '-apple-system, sans-serif', cursor: 'pointer' }}>Archive</button>
+                    <button onClick={() => updateStatus(listing.id, 'hidden')} style={{ background: '#EDE7D9', color: '#5A5A50', border: '1px solid #D8D0BC', borderRadius: 5, padding: '6px 10px', fontSize: 10, fontFamily: '-apple-system, sans-serif', cursor: 'pointer' }}>Hide</button>
+                    <button onClick={() => updateStatus(listing.id, 'rejected')} style={{ background: 'transparent', color: '#A84B2A', border: '1px solid #A84B2A', borderRadius: 5, padding: '6px 10px', fontSize: 10, fontFamily: '-apple-system, sans-serif', cursor: 'pointer' }}>Reject</button>
+                  </>
+                )}
+                {listing.status === 'approved' && (
+                  <>
+                    <button onClick={() => updateStatus(listing.id, 'hidden')} style={{ background: '#EDE7D9', color: '#5A5A50', border: '1px solid #D8D0BC', borderRadius: 5, padding: '6px 10px', fontSize: 10, fontFamily: '-apple-system, sans-serif', cursor: 'pointer' }}>Hide</button>
+                    <button onClick={() => updateStatus(listing.id, 'archived')} style={{ background: '#EDE7D9', color: '#5A5A50', border: '1px solid #D8D0BC', borderRadius: 5, padding: '6px 10px', fontSize: 10, fontFamily: '-apple-system, sans-serif', cursor: 'pointer' }}>Archive</button>
+                  </>
+                )}
+                {(listing.status === 'hidden' || listing.status === 'archived' || listing.status === 'rejected') && (
+                  <button onClick={() => updateStatus(listing.id, 'pending')} style={{ background: '#EDE7D9', color: '#1B3A1D', border: '1.5px solid #1B3A1D', borderRadius: 5, padding: '6px 10px', fontSize: 10, fontFamily: '-apple-system, sans-serif', fontWeight: 700, cursor: 'pointer' }}>
+                    Restore to pending ↑
+                  </button>
+                )}
+                <Link href={`/listing/${listing.id}`} style={{ background: '#EDE7D9', color: '#5A5A50', border: '1px solid #D8D0BC', borderRadius: 5, padding: '6px 10px', fontSize: 10, fontFamily: '-apple-system, sans-serif', cursor: 'pointer', textDecoration: 'none' }}>View</Link>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
-  );
+  )
 }

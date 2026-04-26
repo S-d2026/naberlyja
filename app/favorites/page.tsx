@@ -1,168 +1,79 @@
-"use client";
+'use client'
+// app/favorites/page.tsx
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { supabase } from "@/lib/supabase";
-import { makeTelLink, makeWhatsAppLink } from "@/lib/links";
-
-type ListingItem = {
-  id: string;
-  title: string | null;
-  type: string | null;
-  price: string | null;
-  parish: string | null;
-  district: string | null;
-  community: string | null;
-  contact_phone: string | null;
-  image_url: string | null;
-  description: string | null;
-};
-
-type FavoriteRow = {
-  id: string;
-  listing_id: string;
-  listings: ListingItem | ListingItem[] | null;
-};
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { supabase, getSavedListings } from '@/lib/supabase'
 
 export default function FavoritesPage() {
-  const [rows, setRows] = useState<FavoriteRow[]>([]);
-  const [msg, setMsg] = useState("Loading saved items...");
+  const router = useRouter()
+  const [saved, setSaved] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadFavorites();
-  }, []);
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { router.push('/login'); return }
+      const { data } = await getSavedListings(user.id)
+      setSaved(data || [])
+      setLoading(false)
+    })
+  }, [router])
 
-  async function loadFavorites() {
-    if (!supabase) {
-      setMsg("Supabase is not configured.");
-      return;
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      setMsg("Please log in to see saved items.");
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("favorite_listings")
-      .select("id, listing_id, listings(*)")
-      .eq("user_id", session.user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
-
-    setRows((data ?? []) as unknown as FavoriteRow[]);
-    setMsg(data && data.length ? "" : "No saved items yet.");
-  }
-
-  function getListing(item: FavoriteRow): ListingItem | null {
-    if (!item.listings) return null;
-    if (Array.isArray(item.listings)) return item.listings[0] || null;
-    return item.listings;
-  }
+  const EMOJI: Record<string, string> = { food: '🍲', urgent: '⚠️', work: '💼', ride: '🚗', service: '🛠️', 'buy-sell': '🛍️' }
+  const BG: Record<string, string> = { food: '#D0E8BC', urgent: '#F0CABA', work: '#BCD0E8', ride: '#E0D8F0', service: '#F0E8BC', 'buy-sell': '#EDE7D9' }
 
   return (
-    <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 12 }}>
-      <div className="card pad">
-        <div className="flex between center gap-12 wrap">
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 28 }}>Saved Items</div>
-            <div className="small muted">Listings you want to come back to</div>
+    <div className="app-shell">
+      <div className="header-sm">
+        <Link href="/" className="back-btn">←</Link>
+        <span style={{ color: '#fff', fontSize: 14 }}>Saved</span>
+      </div>
+
+      <div className="scroll-area">
+        <div style={{ padding: '9px 13px 3px' }}>
+          <p style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: '#5A5A50' }}>Listings you want to come back to</p>
+        </div>
+
+        {loading ? (
+          <div className="loading">Loading...</div>
+        ) : saved.length === 0 ? (
+          <div className="empty-state">
+            <p style={{ fontSize: 28, marginBottom: 8 }}>♡</p>
+            <p style={{ fontSize: 13, fontFamily: '-apple-system, sans-serif', color: '#18180F', marginBottom: 4 }}>Nothing saved yet</p>
+            <p style={{ fontSize: 11, fontFamily: '-apple-system, sans-serif', color: '#5A5A50' }}>
+              Tap ♡ on any listing to save it here
+            </p>
           </div>
-
-          <Link href="/" className="btn secondary" style={{ width: "auto" }}>
-            Home
-          </Link>
-        </div>
+        ) : (
+          saved.map((item: any) => {
+            const listing = item.listings
+            if (!listing) return null
+            return (
+              <Link key={item.listing_id} href={`/listing/${item.listing_id}`} className="listing-row">
+                <div className="listing-icon" style={{ background: BG[listing.category] || '#EDE7D9' }}>
+                  {EMOJI[listing.category] || '📋'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontFamily: '-apple-system, sans-serif', fontWeight: 700, color: '#18180F', marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{listing.title}</p>
+                  <p style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: '#5A5A50' }}>
+                    {listing.parish}{listing.district ? ` · ${listing.district}` : ''} · {listing.is_free ? 'Free' : listing.price_jmd ? `$${listing.price_jmd.toLocaleString()} JMD` : 'By quote'}
+                  </p>
+                </div>
+                <span style={{ color: '#C0392B', fontSize: 16 }}>♥</span>
+              </Link>
+            )
+          })
+        )}
       </div>
 
-      {msg ? (
-        <div className="card pad muted" style={{ marginTop: 14 }}>
-          {msg}
-        </div>
-      ) : null}
-
-      <div
-        style={{
-          display: "grid",
-          gap: 16,
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          marginTop: 14,
-        }}
-      >
-        {rows.map((row) => {
-          const item = getListing(row);
-          if (!item) return null;
-
-          return (
-            <div key={row.id} className="card pad">
-              <div className="flex between gap-12">
-                <div>
-                  <div style={{ fontSize: 20, fontWeight: 700 }}>{item.title}</div>
-                  <div className="small muted">{item.type}</div>
-                </div>
-
-                <div style={{ fontWeight: 700 }}>{item.price || "Contact"}</div>
-              </div>
-
-              <div className="small muted" style={{ marginTop: 10 }}>
-                📍 {[item.community, item.district, item.parish].filter(Boolean).join(", ")}
-              </div>
-
-              {item.image_url ? (
-                <img
-                  src={item.image_url}
-                  alt="listing"
-                  style={{
-                    width: "100%",
-                    height: 180,
-                    objectFit: "cover",
-                    borderRadius: 12,
-                    marginTop: 12,
-                  }}
-                />
-              ) : null}
-
-              {item.description ? (
-                <div className="small" style={{ marginTop: 10 }}>
-                  {item.description}
-                </div>
-              ) : null}
-
-              <div
-                className="grid"
-                style={{ gridTemplateColumns: "repeat(2,1fr)", marginTop: 12 }}
-              >
-                <a
-                  className="btn"
-                  href={makeWhatsAppLink(
-                    item.contact_phone || "",
-                    `Hi, I saw ${item.title} on Naberly.`
-                  )}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  WhatsApp
-                </a>
-
-                <a
-                  className="btn secondary"
-                  href={item.contact_phone ? makeTelLink(item.contact_phone) : "#"}
-                >
-                  Call
-                </a>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <nav className="bottom-nav">
+        <Link href="/" className="nav-item"><svg width="20" height="20" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 9.5L11 3L19 9.5V19H14V14H8V19H3V9.5Z" strokeLinecap="round" strokeLinejoin="round"/></svg><span className="nav-label">Home</span></Link>
+        <Link href="/browse" className="nav-item"><svg width="20" height="20" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="10" cy="10" r="6"/><path d="M15 15L19 19" strokeLinecap="round"/></svg><span className="nav-label">Browse</span></Link>
+        <div className="fab-wrapper"><Link href="/post" className="fab"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="#fff" strokeWidth="2"><path d="M8.5 2V15M2 8.5H15" strokeLinecap="round"/></svg></Link><span className="nav-label" style={{ color: '#5A5A50' }}>Post</span></div>
+        <Link href="/favorites" className="nav-item active"><svg width="20" height="20" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M11 18.5C11 18.5 3 13.5 3 7.5C3 5.3 4.8 3.5 7 3.5C8.8 3.5 10.3 4.5 11 5C11.7 4.5 13.2 3.5 15 3.5C17.2 3.5 19 5.3 19 7.5C19 13.5 11 18.5 11 18.5Z" strokeLinecap="round" strokeLinejoin="round"/></svg><span className="nav-label">Saved</span></Link>
+        <Link href="/account" className="nav-item"><svg width="20" height="20" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="11" cy="8" r="3.5"/><path d="M4 19c0-3.9 3.1-7 7-7s7 3.1 7 7" strokeLinecap="round"/></svg><span class="nav-label">Me</span></Link>
+      </nav>
     </div>
-  );
+  )
 }

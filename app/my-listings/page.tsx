@@ -1,154 +1,94 @@
-"use client";
+'use client'
+// app/my-listings/page.tsx
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { supabase } from "@/lib/supabase";
-
-type Listing = {
-  id: string;
-  title: string | null;
-  price: string | null;
-  parish: string | null;
-  district: string | null;
-  community: string | null;
-  type: string | null;
-  status: string | null;
-  availability_status: string | null;
-  featured: boolean | null;
-  created_at: string | null;
-};
-
-function shareText(item: Listing) {
-  const url = typeof window !== "undefined" ? window.location.origin : "https://naberlyja.com";
-  return `New on Naberly JA: ${item.title || "listing"}${item.price ? ` - ${item.price}` : ""}. See local food, deals, services and help nearby: ${url}`;
-}
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { supabase, getUserListings, adminUpdateListing, type Listing } from '@/lib/supabase'
 
 export default function MyListingsPage() {
-  const [rows, setRows] = useState<Listing[]>([]);
-  const [msg, setMsg] = useState("Loading your listings...");
+  const router = useRouter()
+  const [listings, setListings] = useState<Listing[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadRows();
-  }, []);
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { router.push('/login'); return }
+      const { data } = await getUserListings(user.id)
+      setListings((data as Listing[]) || [])
+      setLoading(false)
+    })
+  }, [router])
 
-  async function loadRows() {
-    if (!supabase) return;
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      setMsg("Please login to manage your listings.");
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("listings")
-      .select("*")
-      .eq("user_id", session.user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
-
-    setRows(data || []);
-    setMsg(data && data.length ? "" : "No listings yet.");
+  const STATUS_DOT: Record<string, string> = {
+    approved: '#4CAF50',
+    pending: '#C8821A',
+    archived: '#D8D0BC',
+    hidden: '#D8D0BC',
+    rejected: '#A84B2A',
   }
 
-  async function updateListing(id: string, updates: Record<string, unknown>, success: string) {
-    if (!supabase) return;
-
-    const { error } = await supabase.from("listings").update(updates).eq("id", id);
-
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
-
-    setMsg(success);
-    loadRows();
-  }
-
-  async function markSold(id: string) {
-    updateListing(id, { availability_status: "sold" }, "Marked sold.");
-  }
-
-  async function markAvailable(id: string) {
-    updateListing(id, { availability_status: "available" }, "Marked available.");
-  }
-
-  async function renew(id: string) {
-    updateListing(id, { created_at: new Date().toISOString(), status: "pending" }, "Listing renewed and sent for approval.");
-  }
-
-  async function copyShare(item: Listing) {
-    const text = shareText(item);
-    await navigator.clipboard.writeText(text);
-    setMsg("Share message copied.");
-  }
-
-  function whatsappShare(item: Listing) {
-    const text = encodeURIComponent(shareText(item));
-    window.open(`https://wa.me/?text=${text}`, "_blank");
+  const STATUS_LABEL: Record<string, string> = {
+    approved: 'Live',
+    pending: 'Pending review',
+    archived: 'Archived',
+    hidden: 'Hidden',
+    rejected: 'Rejected',
   }
 
   return (
-    <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 12 }}>
-      <div className="card pad">
-        <div className="flex between center gap-12 wrap">
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 28 }}>My Listings</div>
-            <div className="small muted">Manage, renew, share, and update your posts</div>
-          </div>
-
-          <div className="flex gap-8 wrap">
-            <Link href="/" className="btn secondary" style={{ width: "auto" }}>
-              Home
-            </Link>
-            <Link href="/post" className="btn" style={{ width: "auto" }}>
-              New Post
-            </Link>
-          </div>
-        </div>
+    <div className="app-shell">
+      <div className="header-sm">
+        <Link href="/account" className="back-btn">←</Link>
+        <span style={{ color: '#fff', fontSize: 14, flex: 1 }}>My listings</span>
+        <Link href="/post" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 6, padding: '5px 9px', color: '#fff', fontSize: 10, fontFamily: '-apple-system, sans-serif', textDecoration: 'none' }}>+ New</Link>
       </div>
 
-      {msg && <div className="card pad muted" style={{ marginTop: 14 }}>{msg}</div>}
+      <div className="scroll-area">
+        <div style={{ padding: '9px 13px 3px' }}>
+          <p style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: '#5A5A50' }}>Manage, renew, share and update your posts</p>
+        </div>
 
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", marginTop: 14 }}>
-        {rows.map((item) => (
-          <div key={item.id} className="card pad">
-            <div style={{ fontSize: 20, fontWeight: 800 }}>{item.title || "Untitled"}</div>
-            <div className="small muted" style={{ marginTop: 6 }}>
-              {[item.community, item.district, item.parish].filter(Boolean).join(", ")}
-            </div>
-            <div className="small" style={{ marginTop: 8 }}>
-              {item.type} {item.price ? `• ${item.price}` : ""}
-            </div>
-            <div className="small muted" style={{ marginTop: 8 }}>
-              Status: {item.status} • Availability: {item.availability_status || "available"} {item.featured ? "• Featured" : ""}
-            </div>
-
-            {item.status === "approved" && (
-              <div className="card pad" style={{ background: "#ecfdf5", marginTop: 12 }}>
-                <div style={{ fontWeight: 700 }}>Your listing is live.</div>
-                <div className="small muted">Share it with customers so they know what you have today.</div>
-              </div>
-            )}
-
-            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0,1fr))", marginTop: 12 }}>
-              <button className="btn" onClick={() => whatsappShare(item)}>Share WhatsApp</button>
-              <button className="btn secondary" onClick={() => copyShare(item)}>Copy Message</button>
-              <button className="btn secondary" onClick={() => markAvailable(item.id)}>Available</button>
-              <button className="btn secondary" onClick={() => markSold(item.id)}>Sold</button>
-              <button className="btn secondary" onClick={() => renew(item.id)}>Renew</button>
-              <Link href="/featured" className="btn secondary">Boost</Link>
-            </div>
+        {loading ? (
+          <div className="loading">Loading...</div>
+        ) : listings.length === 0 ? (
+          <div className="empty-state">
+            <p style={{ fontSize: 28, marginBottom: 8 }}>📋</p>
+            <p style={{ fontSize: 13, fontFamily: '-apple-system, sans-serif', color: '#18180F', marginBottom: 4 }}>No listings yet</p>
+            <Link href="/post" style={{ color: '#1B3A1D', fontFamily: '-apple-system, sans-serif', fontSize: 13 }}>Post your first listing →</Link>
           </div>
-        ))}
+        ) : (
+          listings.map(listing => (
+            <div key={listing.id} className="account-row" style={{ alignItems: 'start', gap: 9, padding: '12px 13px', opacity: listing.status === 'archived' || listing.status === 'rejected' ? 0.55 : 1 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_DOT[listing.status] || '#D8D0BC', marginTop: 4, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 12, fontFamily: '-apple-system, sans-serif', fontWeight: 700, color: '#18180F', marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{listing.title}</p>
+                <p style={{ fontSize: 10, fontFamily: '-apple-system, sans-serif', color: '#5A5A50' }}>
+                  {STATUS_LABEL[listing.status]} · {listing.district || listing.parish}
+                  {listing.status === 'approved' ? ` · ${listing.response_count || 0} responses` : ''}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                {listing.status === 'approved' && (
+                  <Link href="/boost" style={{ background: '#C8821A', color: '#fff', border: 'none', borderRadius: 5, padding: '4px 7px', fontSize: 9, fontFamily: '-apple-system, sans-serif', textDecoration: 'none' }}>Boost</Link>
+                )}
+                {listing.status === 'archived' && (
+                  <button
+                    onClick={async () => {
+                      await adminUpdateListing(listing.id, { status: 'pending' })
+                      setListings(prev => prev.map(l => l.id === listing.id ? { ...l, status: 'pending' } : l))
+                    }}
+                    style={{ background: '#1B3A1D', color: '#fff', border: 'none', borderRadius: 5, padding: '4px 8px', fontSize: 9, fontFamily: '-apple-system, sans-serif', cursor: 'pointer' }}
+                  >
+                    Renew
+                  </button>
+                )}
+                <Link href={`/listing/${listing.id}`} style={{ background: '#EDE7D9', color: '#5A5A50', border: '1px solid #D8D0BC', borderRadius: 5, padding: '4px 7px', fontSize: 9, fontFamily: '-apple-system, sans-serif', textDecoration: 'none' }}>View</Link>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
-  );
+  )
 }
